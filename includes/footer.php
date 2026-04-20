@@ -6,6 +6,7 @@ declare(strict_types=1);
 <footer class="site-footer">
     <p><?= h(APP_FULL_NAME) ?>. Byggd med PHP, MySQLi, HTML, CSS och JavaScript.</p>
 </footer>
+<?php render_cookie_notice(); ?>
 </body>
 </html>
 

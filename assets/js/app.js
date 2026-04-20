@@ -1,4 +1,13 @@
 document.addEventListener('DOMContentLoaded', () => {
+  const cookieBanner = document.querySelector('[data-cookie-banner]');
+  const cookieAcceptButton = document.querySelector('[data-cookie-accept]');
+  if (cookieBanner && cookieAcceptButton) {
+    cookieAcceptButton.addEventListener('click', () => {
+      document.cookie = 'saga_cookie_consent=accepted; Max-Age=315360000; Path=/; SameSite=Lax';
+      cookieBanner.hidden = true;
+    });
+  }
+
   const themeSelect = document.querySelector('[data-theme-select]');
   if (themeSelect) {
     const allowedThemes = ['light', 'auto', 'dark'];

@@ -21,6 +21,7 @@ Rollerna är:
 - Superadmin: kan skapa skolor med minst en skoladministratör, skapa användare direkt som godkända och hantera registreringar för alla skolor.
 
 Ljus, auto och mörkt läge väljs av användaren i sidhuvudet och standardläget är auto.
+Användaren behöver godkänna nödvändiga kakor. När det är gjort sparas godkännandet i en cookie och frågan visas inte igen.
 
 ## Databasschema
 
@@ -46,6 +47,7 @@ config/
 includes/
   bootstrap.php            Startar session, databas och gemensamma inkluderingsfiler
   functions.php            CSRF, escaping, flash, DB-hjälpare och rollkrav
+  installer.php            Första-körningsinstallation från index.php
   auth.php                 Inloggning och utloggning
   projects.php             Sökanrop, behörighet och PDF-validering
   project_form_handler.php Sparar elevens projekt och PDF
@@ -75,35 +77,32 @@ download.php               Säker PDF-servering
 school_logo.php            Säker servering av skolans logotyp
 ```
 
-## Installation med XAMPP
+## Installation på webbserver
 
-1. Placera projektmappen i XAMPP:s webbrot, till exempel `C:\xampp\htdocs\saga`.
-2. Starta Apache och MySQL i XAMPP Control Panel.
-3. Öppna phpMyAdmin och importera `database/schema.sql`.
-   Alternativt kan schemat importeras från PowerShell utan att å/ä/ö förvanskas:
+1. Ladda upp filerna till webbservern.
+2. Se till att PHP har `mysqli` aktiverat.
+3. Se till att PHP kan skriva till `config/` under installationen och till `uploads/` vid drift.
+4. Öppna webbplatsens `index.php` i webbläsaren.
+5. Om `config/installed.php` saknas visas installationsformuläret automatiskt.
+6. Ange databasserver, databasnamn, databasanvändare, tabellprefix och första superadmin-konto.
+   Standardprefix för tabeller är `saga_`.
+7. När installationen är klar skapas `config/installed.php`. Så länge filen finns kan installationen inte köras igen.
+
+`config/installed.php` är miljöspecifik och ska inte commitas eller följa med till en nyinstallation.
+
+## Manuell import för utveckling
+
+`database/schema.sql` kan fortfarande importeras manuellt i en lokal utvecklingsmiljö. Från PowerShell kan den importeras utan att å/ä/ö förvanskas med:
 
 ```powershell
 & 'C:\xampp\mysql\bin\mysql.exe' --default-character-set=utf8mb4 -u root --execute="SOURCE C:/xampp/htdocs/saga/database/schema.sql"
 ```
 
-   Databasen och tabellerna använder `utf8mb4_swedish_ci`.
-4. Kontrollera att PHP-tillägget `mysqli` är aktiverat i XAMPP:s `php.ini`.
-5. Kontrollera databasinställningarna i `config/app.php`.
-   Standard är:
-
-```php
-define('DB_HOST', '127.0.0.1');
-define('DB_USER', 'root');
-define('DB_PASS', '');
-define('DB_NAME', 'saga');
-```
-
-6. Se till att PHP/Apache kan skriva i `uploads/`.
-7. Öppna `http://localhost/saga/`.
+Databasen och tabellerna använder `utf8mb4_swedish_ci`.
 
 ## Testkonton
 
-`database/schema.sql` skapar följande testkonton:
+Den manuella utvecklingsimporten i `database/schema.sql` skapar följande testkonton:
 
 | Roll | Användarnamn | Lösenord |
 | ---- | ------------ | -------- |

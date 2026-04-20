@@ -22,6 +22,32 @@ function start_secure_session(): void
     session_start();
 }
 
+function app_is_installed(): bool
+{
+    return is_file(INSTALL_LOCK_FILE);
+}
+
+function cookie_consent_accepted(): bool
+{
+    return ($_COOKIE['saga_cookie_consent'] ?? '') === 'accepted';
+}
+
+function render_cookie_notice(): void
+{
+    if (cookie_consent_accepted()) {
+        return;
+    }
+    ?>
+    <div class="cookie-banner" data-cookie-banner role="region" aria-label="Information om kakor">
+        <div>
+            <strong>Kakor krävs</strong>
+            <p>SAGA använder nödvändiga kakor för inloggning, säkerhet och dina lokala inställningar. Du behöver godkänna kakor för att använda tjänsten.</p>
+        </div>
+        <button class="button button-primary" type="button" data-cookie-accept>Godkänn kakor</button>
+    </div>
+    <?php
+}
+
 function h(?string $value): string
 {
     return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -139,8 +165,31 @@ function bind_and_execute(mysqli_stmt $stmt, string $types = '', array $params =
     $stmt->execute();
 }
 
+function db_table_prefix(): string
+{
+    return defined('DB_TABLE_PREFIX') ? (string) DB_TABLE_PREFIX : '';
+}
+
+function prefix_sql_tables(string $sql): string
+{
+    $prefix = db_table_prefix();
+    if ($prefix === '') {
+        return $sql;
+    }
+
+    static $tables = ['schools', 'categories', 'users', 'projects', 'upload_versions', 'audit_log'];
+    $pattern = '/(?<![A-Za-z0-9_`])(' . implode('|', $tables) . ')(?![A-Za-z0-9_`])/';
+
+    return preg_replace_callback(
+        $pattern,
+        static fn (array $match): string => '`' . $prefix . $match[1] . '`',
+        $sql
+    ) ?? $sql;
+}
+
 function fetch_all_prepared(mysqli $conn, string $sql, string $types = '', array $params = []): array
 {
+    $sql = prefix_sql_tables($sql);
     $stmt = $conn->prepare($sql);
     bind_and_execute($stmt, $types, $params);
 
@@ -149,6 +198,7 @@ function fetch_all_prepared(mysqli $conn, string $sql, string $types = '', array
 
 function fetch_one_prepared(mysqli $conn, string $sql, string $types = '', array $params = []): ?array
 {
+    $sql = prefix_sql_tables($sql);
     $stmt = $conn->prepare($sql);
     bind_and_execute($stmt, $types, $params);
     $row = $stmt->get_result()->fetch_assoc();
@@ -158,6 +208,7 @@ function fetch_one_prepared(mysqli $conn, string $sql, string $types = '', array
 
 function execute_prepared(mysqli $conn, string $sql, string $types = '', array $params = []): mysqli_stmt
 {
+    $sql = prefix_sql_tables($sql);
     $stmt = $conn->prepare($sql);
     bind_and_execute($stmt, $types, $params);
 

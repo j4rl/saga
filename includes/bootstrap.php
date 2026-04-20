@@ -6,6 +6,10 @@ require_once __DIR__ . '/functions.php';
 
 start_secure_session();
 
+if (!app_is_installed()) {
+    redirect('index.php');
+}
+
 $conn = require __DIR__ . '/../config/database.php';
 
 require_once __DIR__ . '/auth.php';
