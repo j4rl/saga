@@ -4,10 +4,7 @@ declare(strict_types=1);
 $pageTitle = $pageTitle ?? APP_NAME;
 $user = current_user();
 $schoolProfile = $user ? fetch_school_profile($conn, (int) $user['school_id']) : null;
-$themeMode = $schoolProfile['theme_mode'] ?? 'auto';
-if (!in_array($themeMode, ['light', 'auto', 'dark'], true)) {
-    $themeMode = 'auto';
-}
+$themeMode = current_theme_mode();
 $themeCss = $schoolProfile ? school_theme_css_vars($schoolProfile) : '';
 ?>
 <!doctype html>
@@ -15,7 +12,19 @@ $themeCss = $schoolProfile ? school_theme_css_vars($schoolProfile) : '';
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
     <title><?= h($pageTitle) ?> - <?= h(APP_NAME) ?></title>
+    <script>
+        (() => {
+            try {
+                const theme = window.localStorage.getItem('saga.themeMode');
+                if (['light', 'auto', 'dark'].includes(theme)) {
+                    document.documentElement.dataset.theme = theme;
+                }
+            } catch (error) {
+            }
+        })();
+    </script>
     <link rel="stylesheet" href="assets/css/style.css">
     <?php if ($themeCss): ?>
         <style><?= h($themeCss) ?></style>
@@ -37,6 +46,14 @@ $themeCss = $schoolProfile ? school_theme_css_vars($schoolProfile) : '';
     </a>
     <nav class="main-nav" aria-label="Huvudnavigation">
         <a href="search.php">Sök</a>
+        <label class="theme-picker">
+            <span class="sr-only">Tema</span>
+            <select class="theme-select" data-theme-select aria-label="Tema">
+                <option value="light" <?= $themeMode === 'light' ? 'selected' : '' ?>>Ljust</option>
+                <option value="auto" <?= $themeMode === 'auto' ? 'selected' : '' ?>>Auto</option>
+                <option value="dark" <?= $themeMode === 'dark' ? 'selected' : '' ?>>Mörkt</option>
+            </select>
+        </label>
         <?php if ($user): ?>
             <a href="<?= h(dashboard_url_for_role($user['role'])) ?>">Panel</a>
             <span class="school-badge"><?= h($user['school_name']) ?></span>

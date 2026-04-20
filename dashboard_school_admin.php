@@ -13,13 +13,8 @@ if (is_post()) {
     $action = (string) ($_POST['action'] ?? 'review_registration');
 
     if ($action === 'update_school_profile') {
-        $themeMode = (string) ($_POST['theme_mode'] ?? 'auto');
         $customEnabled = isset($_POST['theme_custom_enabled']) ? 1 : 0;
         $colors = default_theme_colors();
-
-        if (!in_array($themeMode, ['light', 'auto', 'dark'], true)) {
-            $errors[] = 'Välj ett giltigt temaläge.';
-        }
 
         foreach (array_keys($colors) as $field) {
             $colors[$field] = normalize_hex_color((string) ($_POST[$field] ?? ''));
@@ -44,7 +39,6 @@ if (is_post()) {
                 }
 
                 $params = [
-                    $themeMode,
                     $customEnabled,
                     $customEnabled ? $colors['theme_primary'] : null,
                     $customEnabled ? $colors['theme_secondary'] : null,
@@ -52,7 +46,7 @@ if (is_post()) {
                     $customEnabled ? $colors['theme_surface'] : null,
                     $customEnabled ? $colors['theme_text'] : null,
                 ];
-                $types = 'sisssss';
+                $types = 'isssss';
                 $logoSql = '';
 
                 if ($storedLogo) {
@@ -69,7 +63,7 @@ if (is_post()) {
                 execute_prepared(
                     $conn,
                     "UPDATE schools
-                     SET theme_mode = ?, theme_custom_enabled = ?, theme_primary = ?, theme_secondary = ?,
+                     SET theme_mode = 'auto', theme_custom_enabled = ?, theme_primary = ?, theme_secondary = ?,
                          theme_bg = ?, theme_surface = ?, theme_text = ?$logoSql
                      WHERE id = ?",
                     $types,
@@ -156,9 +150,8 @@ require_once __DIR__ . '/includes/header.php';
     <div class="section-heading">
         <div>
             <h2>Skolans utseende</h2>
-            <p class="muted">Temat gäller för inloggade användare på <?= h($user['school_name']) ?>.</p>
+            <p class="muted">Färger och logotyp för <?= h($user['school_name']) ?>.</p>
         </div>
-        <span class="status-pill status-approved"><?= h(theme_mode_label($schoolProfile['theme_mode'] ?? 'auto')) ?></span>
     </div>
 
     <form class="settings-layout" method="post" action="dashboard_school_admin.php" enctype="multipart/form-data">
@@ -166,16 +159,7 @@ require_once __DIR__ . '/includes/header.php';
         <input type="hidden" name="action" value="update_school_profile">
 
         <div class="settings-panel">
-            <h3>Tema</h3>
-            <div class="segmented-control" role="radiogroup" aria-label="Temaläge">
-                <?php foreach (['light' => 'Ljust', 'auto' => 'Auto', 'dark' => 'Mörkt'] as $mode => $label): ?>
-                    <label>
-                        <input type="radio" name="theme_mode" value="<?= h($mode) ?>" <?= ($schoolProfile['theme_mode'] ?? 'auto') === $mode ? 'checked' : '' ?>>
-                        <span><?= h($label) ?></span>
-                    </label>
-                <?php endforeach; ?>
-            </div>
-
+            <h3>Färger</h3>
             <label class="check-option">
                 <input type="checkbox" name="theme_custom_enabled" value="1" <?= (int) ($schoolProfile['theme_custom_enabled'] ?? 0) === 1 ? 'checked' : '' ?> data-theme-custom-toggle>
                 <span>Använd eget tema</span>

@@ -1,4 +1,5 @@
 :root {
+    color-scheme: light;
     --bg: #f6f7f9;
     --surface: #ffffff;
     --surface-strong: #eef4f1;
@@ -21,6 +22,7 @@
 }
 
 :root[data-theme="dark"] {
+    color-scheme: dark;
     --bg: #111518;
     --surface: #1b2227;
     --surface-strong: #243038;
@@ -43,6 +45,7 @@
 
 @media (prefers-color-scheme: dark) {
     :root[data-theme="auto"] {
+        color-scheme: dark;
         --bg: #111518;
         --surface: #1b2227;
         --surface-strong: #243038;
@@ -91,6 +94,17 @@ select,
 textarea,
 button {
     font: inherit;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 .site-header {
@@ -180,6 +194,23 @@ button {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.theme-picker {
+    display: inline-flex;
+    align-items: center;
+}
+
+.theme-select {
+    width: auto;
+    min-height: 36px;
+    padding: 6px 34px 6px 10px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+    font-weight: 700;
+    cursor: pointer;
 }
 
 .page-shell {
@@ -896,6 +927,11 @@ textarea:focus {
 
     .nav-user {
         max-width: none;
+    }
+
+    .theme-picker,
+    .theme-select {
+        width: 100%;
     }
 
     .hero {

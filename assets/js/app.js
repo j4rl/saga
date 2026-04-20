@@ -1,4 +1,41 @@
 document.addEventListener('DOMContentLoaded', () => {
+  const themeSelect = document.querySelector('[data-theme-select]');
+  if (themeSelect) {
+    const allowedThemes = ['light', 'auto', 'dark'];
+    const cookieMatch = document.cookie.match(/(?:^|;\s*)saga_theme_mode=([^;]+)/);
+    let activeTheme = 'auto';
+
+    try {
+      const storedTheme = window.localStorage.getItem('saga.themeMode');
+      if (allowedThemes.includes(storedTheme)) {
+        activeTheme = storedTheme;
+      } else if (cookieMatch && allowedThemes.includes(cookieMatch[1])) {
+        activeTheme = cookieMatch[1];
+      }
+    } catch (error) {
+      if (cookieMatch && allowedThemes.includes(cookieMatch[1])) {
+        activeTheme = cookieMatch[1];
+      }
+    }
+
+    const applyTheme = (theme) => {
+      activeTheme = allowedThemes.includes(theme) ? theme : 'auto';
+      document.documentElement.dataset.theme = activeTheme;
+      themeSelect.value = activeTheme;
+      document.cookie = `saga_theme_mode=${activeTheme}; Max-Age=31536000; Path=/; SameSite=Lax`;
+
+      try {
+        window.localStorage.setItem('saga.themeMode', activeTheme);
+      } catch (error) {
+      }
+    };
+
+    themeSelect.addEventListener('change', () => {
+      applyTheme(themeSelect.value);
+    });
+    applyTheme(activeTheme);
+  }
+
   document.querySelectorAll('textarea[data-counter]').forEach((textarea) => {
     const target = document.getElementById(textarea.dataset.counter);
     const update = () => {

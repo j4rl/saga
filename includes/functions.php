@@ -231,6 +231,18 @@ function school_theme_css_vars(array $school): string
     return $vars ? ':root{' . implode(';', $vars) . ';}' : '';
 }
 
+function normalize_theme_mode(?string $mode): string
+{
+    $mode = (string) $mode;
+
+    return in_array($mode, ['light', 'auto', 'dark'], true) ? $mode : 'auto';
+}
+
+function current_theme_mode(): string
+{
+    return normalize_theme_mode($_COOKIE['saga_theme_mode'] ?? 'auto');
+}
+
 function theme_mode_label(string $mode): string
 {
     return match ($mode) {

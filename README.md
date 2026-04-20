@@ -17,7 +17,7 @@ Rollerna är:
 - Oinloggad besökare: kan söka och visa publika arbeten.
 - Elev: kan registrera sig, logga in efter godkännande, skapa, redigera och lämna in sitt eget arbete med kategori och handledare från skolans registrerade lärare samt söka publika arbeten.
 - Lärare: kan registrera sig, logga in efter godkännande, se sina handledda arbeten direkt, se alla arbeten där de är handledare, filtrera fram inlämnade arbeten på den egna skolan och skriva ut en elev-/rubriklista.
-- Skoladministratör: godkänner eller avvisar elev- och lärarregistreringar på sin egen skola samt ställer in skolans tema och logotyp.
+- Skoladministratör: godkänner eller avvisar elev- och lärarregistreringar på sin egen skola samt ställer in skolans färger och logotyp.
 - Superadmin: kan skapa skolor med minst en skoladministratör, skapa användare direkt som godkända och hantera registreringar för alla skolor.
 
 ## Databasschema
@@ -25,7 +25,7 @@ Rollerna är:
 Databasen finns i `database/schema.sql`.
 
 - `schools`: skolor.
-- `schools`: innehåller även skolans temaläge, eventuella egna temafärger och logotyp.
+- `schools`: innehåller även skolans eventuella egna temafärger och logotyp.
 - `categories`: kategorier för gymnasiearbeten.
 - `users`: användare med `password_hash`, roll och skolkoppling.
 - `users.approval_status`: styr om ett konto väntar, är godkänt eller avvisat.
