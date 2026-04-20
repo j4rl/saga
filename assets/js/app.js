@@ -8,8 +8,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  const themeSelect = document.querySelector('[data-theme-select]');
-  if (themeSelect) {
+  const themePicker = document.querySelector('[data-theme-picker]');
+  const themeButtons = themePicker ? Array.from(themePicker.querySelectorAll('[data-theme-option]')) : [];
+  if (themeButtons.length > 0) {
     const allowedThemes = ['light', 'auto', 'dark'];
     const cookieMatch = document.cookie.match(/(?:^|;\s*)saga_theme_mode=([^;]+)/);
     let activeTheme = 'auto';
@@ -30,7 +31,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const applyTheme = (theme) => {
       activeTheme = allowedThemes.includes(theme) ? theme : 'auto';
       document.documentElement.dataset.theme = activeTheme;
-      themeSelect.value = activeTheme;
+      themeButtons.forEach((button) => {
+        const selected = button.dataset.themeOption === activeTheme;
+        button.setAttribute('aria-checked', selected ? 'true' : 'false');
+        button.classList.toggle('active', selected);
+      });
       document.cookie = `saga_theme_mode=${activeTheme}; Max-Age=31536000; Path=/; SameSite=Lax`;
 
       try {
@@ -39,8 +44,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     };
 
-    themeSelect.addEventListener('change', () => {
-      applyTheme(themeSelect.value);
+    themeButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        applyTheme(button.dataset.themeOption);
+      });
     });
     applyTheme(activeTheme);
   }

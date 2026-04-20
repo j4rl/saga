@@ -46,14 +46,17 @@ $themeCss = $schoolProfile ? school_theme_css_vars($schoolProfile) : '';
     </a>
     <nav class="main-nav" aria-label="Huvudnavigation">
         <a href="search.php">Sök</a>
-        <label class="theme-picker">
-            <span class="sr-only">Tema</span>
-            <select class="theme-select" data-theme-select aria-label="Tema">
-                <option value="light" <?= $themeMode === 'light' ? 'selected' : '' ?>>Ljust</option>
-                <option value="auto" <?= $themeMode === 'auto' ? 'selected' : '' ?>>Auto</option>
-                <option value="dark" <?= $themeMode === 'dark' ? 'selected' : '' ?>>Mörkt</option>
-            </select>
-        </label>
+        <div class="theme-picker" data-theme-picker role="radiogroup" aria-label="Tema">
+            <button class="theme-icon-button" type="button" data-theme-option="light" role="radio" aria-checked="<?= $themeMode === 'light' ? 'true' : 'false' ?>" title="Ljust tema" aria-label="Ljust tema">
+                <span aria-hidden="true">☀</span>
+            </button>
+            <button class="theme-icon-button" type="button" data-theme-option="auto" role="radio" aria-checked="<?= $themeMode === 'auto' ? 'true' : 'false' ?>" title="Automatiskt tema" aria-label="Automatiskt tema">
+                <span aria-hidden="true">A</span>
+            </button>
+            <button class="theme-icon-button" type="button" data-theme-option="dark" role="radio" aria-checked="<?= $themeMode === 'dark' ? 'true' : 'false' ?>" title="Mörkt tema" aria-label="Mörkt tema">
+                <span aria-hidden="true">☾</span>
+            </button>
+        </div>
         <?php if ($user): ?>
             <a href="<?= h(dashboard_url_for_role($user['role'])) ?>">Panel</a>
             <span class="school-badge"><?= h($user['school_name']) ?></span>
