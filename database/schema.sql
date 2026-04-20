@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS categories (
 CREATE TABLE IF NOT EXISTS users (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(80) NOT NULL UNIQUE,
+    email VARCHAR(190) NULL,
     password_hash VARCHAR(255) NOT NULL,
     full_name VARCHAR(160) NOT NULL,
     role ENUM('student', 'teacher', 'school_admin', 'super_admin') NOT NULL DEFAULT 'student',
@@ -47,7 +48,8 @@ CREATE TABLE IF NOT EXISTS users (
         ON DELETE SET NULL
         ON UPDATE CASCADE,
     INDEX idx_users_role_school (role, school_id),
-    INDEX idx_users_approval_school (approval_status, school_id)
+    INDEX idx_users_approval_school (approval_status, school_id),
+    INDEX idx_users_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_swedish_ci;
 
 CREATE TABLE IF NOT EXISTS projects (
@@ -89,7 +91,8 @@ CREATE TABLE IF NOT EXISTS projects (
     INDEX idx_projects_category (category_id),
     INDEX idx_projects_school_public (school_id, is_public),
     INDEX idx_projects_updated (updated_at),
-    INDEX idx_projects_title (title)
+    INDEX idx_projects_title (title),
+    FULLTEXT KEY ft_projects_search (title, subtitle, supervisor, abstract_text, summary_text)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_swedish_ci;
 
 CREATE TABLE IF NOT EXISTS upload_versions (
@@ -126,6 +129,18 @@ CREATE TABLE IF NOT EXISTS audit_log (
     INDEX idx_audit_entity (entity_type, entity_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_swedish_ci;
 
+CREATE TABLE IF NOT EXISTS email_notifications (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    recipient_email VARCHAR(190) NOT NULL,
+    subject VARCHAR(190) NOT NULL,
+    body TEXT NOT NULL,
+    status ENUM('sent', 'failed', 'skipped') NOT NULL DEFAULT 'skipped',
+    error_message VARCHAR(255) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_email_notifications_created (created_at),
+    INDEX idx_email_notifications_recipient (recipient_email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_swedish_ci;
+
 INSERT INTO schools (id, school_name) VALUES
     (1, 'Norra Gymnasiet'),
     (2, 'Södra Gymnasiet')
@@ -149,13 +164,14 @@ INSERT INTO categories (id, category_name) VALUES
     (15, 'Annat')
 ON DUPLICATE KEY UPDATE category_name = VALUES(category_name);
 
-INSERT INTO users (id, username, password_hash, full_name, role, school_id, approval_status, reviewed_at) VALUES
-    (1, 'admin', '$2y$12$mCiDoX63f4nqBGqaOEZ./.NFT/.drYtE1lWip4TILC.uDeGs0xsKu', 'Superadmin', 'super_admin', 1, 'approved', NOW()),
-    (2, 'elev', '$2y$12$0.DUDRZdUGfuDFBT2c9OhueAJTGkWIFbd.IKyXI5kiGIaYseULKUe', 'Exempel Elev', 'student', 1, 'approved', NOW()),
-    (3, 'larare', '$2y$12$sb.qv0WG12fcpTrumaxxk.NFPPlt5OQuObfqJzB2QspLyYOvnRymW', 'Exempel Lärare', 'teacher', 1, 'approved', NOW()),
-    (4, 'skoladmin', '$2y$10$dKsdvoJdMLUUxiJKG93VVuH//Hi2c6vDnZYszPhLz4f6.zWCEK8ta', 'Skoladministratör Norra', 'school_admin', 1, 'approved', NOW()),
-    (5, 'skoladmin_sodra', '$2y$10$dKsdvoJdMLUUxiJKG93VVuH//Hi2c6vDnZYszPhLz4f6.zWCEK8ta', 'Skoladministratör Södra', 'school_admin', 2, 'approved', NOW())
+INSERT INTO users (id, username, email, password_hash, full_name, role, school_id, approval_status, reviewed_at) VALUES
+    (1, 'admin', NULL, '$2y$12$mCiDoX63f4nqBGqaOEZ./.NFT/.drYtE1lWip4TILC.uDeGs0xsKu', 'Superadmin', 'super_admin', 1, 'approved', NOW()),
+    (2, 'elev', NULL, '$2y$12$0.DUDRZdUGfuDFBT2c9OhueAJTGkWIFbd.IKyXI5kiGIaYseULKUe', 'Exempel Elev', 'student', 1, 'approved', NOW()),
+    (3, 'larare', NULL, '$2y$12$sb.qv0WG12fcpTrumaxxk.NFPPlt5OQuObfqJzB2QspLyYOvnRymW', 'Exempel Lärare', 'teacher', 1, 'approved', NOW()),
+    (4, 'skoladmin', NULL, '$2y$10$dKsdvoJdMLUUxiJKG93VVuH//Hi2c6vDnZYszPhLz4f6.zWCEK8ta', 'Skoladministratör Norra', 'school_admin', 1, 'approved', NOW()),
+    (5, 'skoladmin_sodra', NULL, '$2y$10$dKsdvoJdMLUUxiJKG93VVuH//Hi2c6vDnZYszPhLz4f6.zWCEK8ta', 'Skoladministratör Södra', 'school_admin', 2, 'approved', NOW())
 ON DUPLICATE KEY UPDATE
+    email = VALUES(email),
     full_name = VALUES(full_name),
     role = VALUES(role),
     school_id = VALUES(school_id),

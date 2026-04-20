@@ -11,6 +11,7 @@ $errors = [];
 $schools = fetch_schools($conn);
 $formData = [
     'username' => '',
+    'email' => '',
     'full_name' => '',
     'role' => 'student',
     'school_id' => '',
@@ -20,6 +21,7 @@ if (is_post()) {
     verify_csrf();
 
     $username = trim((string) ($_POST['username'] ?? ''));
+    $email = normalize_email((string) ($_POST['email'] ?? ''));
     $fullName = trim((string) ($_POST['full_name'] ?? ''));
     $password = (string) ($_POST['password'] ?? '');
     $passwordConfirm = (string) ($_POST['password_confirm'] ?? '');
@@ -28,6 +30,7 @@ if (is_post()) {
 
     $formData = [
         'username' => $username,
+        'email' => (string) $email,
         'full_name' => $fullName,
         'role' => $role,
         'school_id' => (string) $schoolId,
@@ -35,6 +38,9 @@ if (is_post()) {
 
     if ($username === '' || mb_strlen($username) > 80) {
         $errors[] = 'Användarnamn är obligatoriskt och får vara högst 80 tecken.';
+    }
+    if (trim((string) ($_POST['email'] ?? '')) !== '' && !$email) {
+        $errors[] = 'Ange en giltig e-postadress eller lämna fältet tomt.';
     }
     if ($fullName === '' || mb_strlen($fullName) > 160) {
         $errors[] = 'Namn är obligatoriskt och får vara högst 160 tecken.';
@@ -57,13 +63,19 @@ if (is_post()) {
             $passwordHash = password_hash($password, PASSWORD_DEFAULT);
             $stmt = execute_prepared(
                 $conn,
-                'INSERT INTO users (username, password_hash, full_name, role, school_id, approval_status)
-                 VALUES (?, ?, ?, ?, ?, ?)',
-                'ssssis',
-                [$username, $passwordHash, $fullName, $role, $schoolId, 'pending']
+                'INSERT INTO users (username, email, password_hash, full_name, role, school_id, approval_status)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)',
+                'sssssis',
+                [$username, $email, $passwordHash, $fullName, $role, $schoolId, 'pending']
             );
 
             log_event($conn, null, 'registration_create', 'user', (int) $stmt->insert_id);
+            notify_school_admins(
+                $conn,
+                $schoolId,
+                'Ny registrering i SAGA',
+                $fullName . ' har registrerat sig som ' . role_label($role) . ' och väntar på godkännande.'
+            );
             set_flash('success', 'Registreringen är skickad och väntar på godkännande av skoladministratören.');
             redirect('login.php');
         } catch (mysqli_sql_exception $exception) {
@@ -92,6 +104,12 @@ require_once __DIR__ . '/includes/header.php';
         <div class="field">
             <label for="username">Användarnamn</label>
             <input id="username" name="username" type="text" maxlength="80" required autocomplete="username" value="<?= h($formData['username']) ?>">
+        </div>
+
+        <div class="field">
+            <label for="email">E-post</label>
+            <input id="email" name="email" type="email" maxlength="190" autocomplete="email" value="<?= h($formData['email']) ?>">
+            <p class="field-help">Används för notifieringar om registreringen och arbetet.</p>
         </div>
 
         <div class="field">

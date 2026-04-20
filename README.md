@@ -15,10 +15,10 @@ Applikationen är byggd utan ramverk:
 Rollerna är:
 
 - Oinloggad besökare: kan söka och visa publika arbeten.
-- Elev: kan registrera sig, logga in efter godkännande, skapa, redigera och lämna in sitt eget arbete med kategori och handledare från skolans registrerade lärare samt söka publika arbeten.
-- Lärare: kan registrera sig, logga in efter godkännande, se sina handledda arbeten direkt, se alla arbeten där de är handledare, filtrera fram inlämnade arbeten på den egna skolan och skriva ut en elev-/rubriklista.
+- Elev: kan registrera sig, logga in efter godkännande, byta lösenord, skapa, redigera och lämna in sitt eget arbete med kategori och handledare från skolans registrerade lärare samt söka publika arbeten.
+- Lärare: kan registrera sig, logga in efter godkännande, byta lösenord, se sina handledda arbeten direkt, se alla arbeten där de är handledare, filtrera fram inlämnade arbeten på den egna skolan och skriva ut en elev-/rubriklista.
 - Skoladministratör: godkänner eller avvisar elev- och lärarregistreringar på sin egen skola samt ställer in skolans färger och logotyp.
-- Superadmin: kan skapa skolor med minst en skoladministratör, skapa användare direkt som godkända och hantera registreringar för alla skolor.
+- Superadmin: kan skapa och uppdatera skolor, skapa och uppdatera användare, sätta tillfälliga lösenord, hantera registreringar för alla skolor och se e-postnotislogg.
 
 Ljus, auto och mörkt läge väljs av användaren i sidhuvudet och standardläget är auto.
 Användaren behöver godkänna nödvändiga kakor. När det är gjort sparas godkännandet i en cookie och frågan visas inte igen.
@@ -31,12 +31,14 @@ Databasen finns i `database/schema.sql`.
 - `schools`: innehåller även skolans eventuella egna temafärger och logotyp.
 - `categories`: kategorier för gymnasiearbeten.
 - `users`: användare med `password_hash`, roll och skolkoppling.
+- `users.email`: valfri e-postadress för notifieringar.
 - `users.approval_status`: styr om ett konto väntar, är godkänt eller avvisat.
 - `projects`: metadata, kategori, handledarkoppling, synlighet, inlämningsstatus och aktuell PDF.
 - `upload_versions`: historik för uppladdade PDF-versioner.
+- `email_notifications`: logg över skickade eller misslyckade e-postnotiser.
 - `audit_log`: enkel logg för viktiga händelser.
 
-Sökningen använder SQL `LIKE` mot `title`, `subtitle`, `abstract_text` och `summary_text`. Den är samlad i `includes/projects.php` för att senare kunna bytas till fulltextsökning.
+Sökningen använder MySQL FULLTEXT mot projektets titel, underrubrik, handledare, abstract och sammanfattning, kombinerat med smart synonym- och ungefärlig poängsättning i `includes/projects.php`.
 
 ## Filstruktur
 
@@ -64,6 +66,7 @@ index.php                  Startsida med sök och senaste publika arbeten
 search.php                 Sökresultat med skolfilter och paginering
 login.php                  Inloggning
 logout.php                 Utloggning
+change_password.php        Lösenordsbyte för inloggade användare
 dashboard_student.php      Elevpanel
 dashboard_teacher.php      Lärarpanel
 dashboard_school_admin.php Skoladministratörens godkännandepanel
@@ -122,12 +125,13 @@ Byt lösenord innan systemet används i en riktig miljö.
 - Alla skrivande formulär skyddas med CSRF-token.
 - Självregistrerade konton får inte logga in förrän de har godkänts av skoladministratör eller superadmin.
 - Slutgiltigt inlämnade arbeten låses för fortsatt elevredigering och får automatiskt inlämningsdatum.
+- Inloggade användare kan byta lösenord med kontroll av nuvarande lösenord.
 - PDF-uppladdning kontrollerar filstorlek, filändelse, MIME-typ och PDF-signatur.
 - Uppladdade filer får slumpade filnamn och direktatkomst blockeras med `.htaccess`.
 - `download.php` kontrollerar roll, ägarskap, skola och publik status innan PDF skickas.
 
 ## Vidareutveckling
 
-Rimliga nästa steg är att lägga till lösenordsbyte, mer komplett adminhantering, fulltextsökning, e-postnotiser och versionsvisning för PDF-historik.
+Rimliga nästa steg är att lägga till rate limiting för inloggning, hårdare säkerhetsheaders, e-post via riktig SMTP-tjänst och mer avancerad rapportering.
 
 

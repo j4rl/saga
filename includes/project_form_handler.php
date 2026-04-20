@@ -193,6 +193,18 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
 
         $conn->commit();
 
+        if ($isSubmitted === 1 && $teacher) {
+            $teacherUser = fetch_one_prepared($conn, 'SELECT email FROM users WHERE id = ? LIMIT 1', 'i', [(int) $teacher['id']]);
+            if ($teacherUser && !empty($teacherUser['email'])) {
+                send_email_notification(
+                    $conn,
+                    (string) $teacherUser['email'],
+                    'Gymnasiearbete slutgiltigt inlämnat',
+                    $user['full_name'] . ' har lämnat in "' . $title . '" slutgiltigt i SAGA.'
+                );
+            }
+        }
+
         return ['ok' => true, 'project_id' => $projectId];
     } catch (Throwable $exception) {
         $conn->rollback();

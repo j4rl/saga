@@ -79,6 +79,34 @@ function can_edit_project(array $project, array $viewer): bool
         && (int) $project['is_submitted'] !== 1;
 }
 
+function fetch_project_versions(mysqli $conn, int $projectId): array
+{
+    return fetch_all_prepared(
+        $conn,
+        'SELECT uv.id, uv.stored_filename, uv.original_name, uv.created_at, u.full_name AS uploaded_by_name
+         FROM upload_versions uv
+         INNER JOIN users u ON u.id = uv.uploaded_by
+         WHERE uv.project_id = ?
+         ORDER BY uv.created_at DESC, uv.id DESC',
+        'i',
+        [$projectId]
+    );
+}
+
+function get_project_version(mysqli $conn, int $versionId): ?array
+{
+    return fetch_one_prepared(
+        $conn,
+        'SELECT uv.*, p.user_id, p.school_id, p.is_public, p.supervisor_user_id, p.supervisor
+         FROM upload_versions uv
+         INNER JOIN projects p ON p.id = uv.project_id
+         WHERE uv.id = ?
+         LIMIT 1',
+        'i',
+        [$versionId]
+    );
+}
+
 function add_visibility_sql(?array $viewer, array &$where, string &$types, array &$params, bool $teacherLimitedSearch = true): void
 {
     if (!$viewer) {
@@ -234,6 +262,8 @@ function smart_search_project_score(array $project, string $query, array $terms)
         $score += 80;
     }
 
+    $score += (int) round(((float) ($project['_fulltext_score'] ?? 0)) * 25);
+
     foreach ($tokens as $token) {
         if (str_contains($document, $token)) {
             $score += 24;
@@ -286,9 +316,12 @@ function search_projects(mysqli $conn, array $filters, ?array $viewer, int $page
     $whereSql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
 
     if ($query !== '') {
+        $fulltextQuery = implode(' ', array_slice(search_query_tokens($query), 0, 10));
         $candidateRows = fetch_all_prepared(
             $conn,
             "SELECT p.*, s.school_name, u.full_name AS student_name,
+                    MATCH(p.title, p.subtitle, p.supervisor, p.abstract_text, p.summary_text)
+                        AGAINST (? IN NATURAL LANGUAGE MODE) AS _fulltext_score,
                     c.category_name, COALESCE(su.full_name, p.supervisor) AS supervisor_name
              FROM projects p
              INNER JOIN schools s ON s.id = p.school_id
@@ -296,8 +329,8 @@ function search_projects(mysqli $conn, array $filters, ?array $viewer, int $page
              INNER JOIN categories c ON c.id = p.category_id
              LEFT JOIN users su ON su.id = p.supervisor_user_id
              $whereSql",
-            $types,
-            $params
+            's' . $types,
+            array_merge([$fulltextQuery ?: $query], $params)
         );
 
         $terms = smart_search_terms($query);

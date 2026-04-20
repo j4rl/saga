@@ -22,6 +22,7 @@ if (!$project || !can_view_project($project, $viewer)) {
 }
 
 $pageTitle = $project['title'];
+$versions = fetch_project_versions($conn, (int) $project['id']);
 require_once __DIR__ . '/includes/header.php';
 ?>
 
@@ -99,6 +100,40 @@ require_once __DIR__ . '/includes/header.php';
     <section class="content-block">
         <h2>Sammanfattning</h2>
         <p><?= nl2br(h($project['summary_text'])) ?></p>
+    </section>
+
+    <section class="content-block">
+        <h2>PDF-historik</h2>
+        <?php if (!$versions): ?>
+            <p class="empty-state">Ingen PDF-version har sparats ännu.</p>
+        <?php else: ?>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                    <tr>
+                        <th>Fil</th>
+                        <th>Uppladdad av</th>
+                        <th>Datum</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <?php foreach ($versions as $version): ?>
+                        <tr>
+                            <td><?= h($version['original_name']) ?></td>
+                            <td><?= h($version['uploaded_by_name']) ?></td>
+                            <td><?= h(format_date($version['created_at'])) ?></td>
+                            <td>
+                                <a href="download.php?id=<?= (int) $project['id'] ?>&version=<?= (int) $version['id'] ?>">Öppna</a>
+                                <span aria-hidden="true"> · </span>
+                                <a href="download.php?id=<?= (int) $project['id'] ?>&version=<?= (int) $version['id'] ?>&download=1">Ladda ned</a>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php endif; ?>
     </section>
 </article>
 

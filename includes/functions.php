@@ -177,7 +177,7 @@ function prefix_sql_tables(string $sql): string
         return $sql;
     }
 
-    static $tables = ['schools', 'categories', 'users', 'projects', 'upload_versions', 'audit_log'];
+    static $tables = ['schools', 'categories', 'users', 'projects', 'upload_versions', 'audit_log', 'email_notifications'];
     $pattern = '/(?<![A-Za-z0-9_`])(' . implode('|', $tables) . ')(?![A-Za-z0-9_`])/';
 
     return preg_replace_callback(
@@ -218,6 +218,16 @@ function execute_prepared(mysqli $conn, string $sql, string $types = '', array $
 function fetch_schools(mysqli $conn): array
 {
     return fetch_all_prepared($conn, 'SELECT id, school_name FROM schools ORDER BY school_name');
+}
+
+function fetch_school(mysqli $conn, int $schoolId): ?array
+{
+    return fetch_one_prepared(
+        $conn,
+        'SELECT id, school_name FROM schools WHERE id = ? LIMIT 1',
+        'i',
+        [$schoolId]
+    );
 }
 
 function fetch_school_profile(mysqli $conn, int $schoolId): ?array
@@ -292,6 +302,99 @@ function normalize_theme_mode(?string $mode): string
 function current_theme_mode(): string
 {
     return normalize_theme_mode($_COOKIE['saga_theme_mode'] ?? 'auto');
+}
+
+function normalize_email(?string $email): ?string
+{
+    $email = trim((string) $email);
+    if ($email === '') {
+        return null;
+    }
+
+    return filter_var($email, FILTER_VALIDATE_EMAIL) ? mb_strtolower($email, 'UTF-8') : null;
+}
+
+function send_email_notification(mysqli $conn, string $recipientEmail, string $subject, string $body): void
+{
+    $recipientEmail = (string) normalize_email($recipientEmail);
+    $status = 'skipped';
+    $error = null;
+
+    if ($recipientEmail !== '') {
+        $headers = [
+            'MIME-Version: 1.0',
+            'Content-Type: text/plain; charset=UTF-8',
+            'From: SAGA <no-reply@' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '>',
+        ];
+
+        try {
+            $status = mail($recipientEmail, $subject, $body, implode("\r\n", $headers)) ? 'sent' : 'failed';
+            if ($status === 'failed') {
+                $error = 'mail() returnerade false.';
+            }
+        } catch (Throwable $exception) {
+            $status = 'failed';
+            $error = mb_substr($exception->getMessage(), 0, 255);
+        }
+    }
+
+    try {
+        execute_prepared(
+            $conn,
+            'INSERT INTO email_notifications (recipient_email, subject, body, status, error_message)
+             VALUES (?, ?, ?, ?, ?)',
+            'sssss',
+            [$recipientEmail ?: '(saknas)', $subject, $body, $status, $error]
+        );
+    } catch (Throwable $exception) {
+    }
+}
+
+function notify_school_admins(mysqli $conn, int $schoolId, string $subject, string $body): void
+{
+    $admins = fetch_all_prepared(
+        $conn,
+        'SELECT email FROM users
+         WHERE school_id = ? AND role = \'school_admin\' AND approval_status = \'approved\' AND email IS NOT NULL',
+        'i',
+        [$schoolId]
+    );
+
+    foreach ($admins as $admin) {
+        send_email_notification($conn, (string) $admin['email'], $subject, $body);
+    }
+}
+
+function notify_user(mysqli $conn, int $userId, string $subject, string $body): void
+{
+    $user = fetch_one_prepared($conn, 'SELECT email FROM users WHERE id = ? LIMIT 1', 'i', [$userId]);
+    if ($user && !empty($user['email'])) {
+        send_email_notification($conn, (string) $user['email'], $subject, $body);
+    }
+}
+
+function fetch_admin_users(mysqli $conn): array
+{
+    return fetch_all_prepared(
+        $conn,
+        'SELECT u.id, u.username, u.email, u.full_name, u.role, u.approval_status, u.created_at, s.school_name, s.id AS school_id
+         FROM users u
+         INNER JOIN schools s ON s.id = u.school_id
+         ORDER BY u.created_at DESC, u.id DESC'
+    );
+}
+
+function fetch_recent_email_notifications(mysqli $conn, int $limit = 20): array
+{
+    return fetch_all_prepared(
+        $conn,
+        'SELECT recipient_email, subject, status, error_message, created_at
+         FROM email_notifications
+         ORDER BY created_at DESC, id DESC
+         LIMIT ?',
+        'i',
+        [$limit]
+    );
 }
 
 function validate_school_logo_upload(array $file): array

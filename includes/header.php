@@ -61,6 +61,7 @@ $themeCss = $schoolProfile ? school_theme_css_vars($schoolProfile) : '';
             <a href="<?= h(dashboard_url_for_role($user['role'])) ?>">Panel</a>
             <span class="school-badge"><?= h($user['school_name']) ?></span>
             <span class="nav-user"><?= h($user['full_name']) ?></span>
+            <a href="change_password.php">Lösenord</a>
             <a class="button button-ghost" href="logout.php">Logga ut</a>
         <?php else: ?>
             <a href="register.php">Registrera</a>

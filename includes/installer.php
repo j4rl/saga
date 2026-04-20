@@ -24,6 +24,7 @@ function installer_create_schema(mysqli $conn, string $prefix, string $schoolNam
     $projects = installer_table($prefix, 'projects');
     $uploadVersions = installer_table($prefix, 'upload_versions');
     $auditLog = installer_table($prefix, 'audit_log');
+    $emailNotifications = installer_table($prefix, 'email_notifications');
 
     $statements = [
         "CREATE TABLE IF NOT EXISTS $schools (
@@ -49,6 +50,7 @@ function installer_create_schema(mysqli $conn, string $prefix, string $schoolNam
         "CREATE TABLE IF NOT EXISTS $users (
             id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
             username VARCHAR(80) NOT NULL UNIQUE,
+            email VARCHAR(190) NULL,
             password_hash VARCHAR(255) NOT NULL,
             full_name VARCHAR(160) NOT NULL,
             role ENUM('student', 'teacher', 'school_admin', 'super_admin') NOT NULL DEFAULT 'student',
@@ -67,7 +69,8 @@ function installer_create_schema(mysqli $conn, string $prefix, string $schoolNam
                 ON DELETE SET NULL
                 ON UPDATE CASCADE,
             INDEX idx_users_role_school (role, school_id),
-            INDEX idx_users_approval_school (approval_status, school_id)
+            INDEX idx_users_approval_school (approval_status, school_id),
+            INDEX idx_users_email (email)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_swedish_ci",
         "CREATE TABLE IF NOT EXISTS $projects (
             id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -108,7 +111,8 @@ function installer_create_schema(mysqli $conn, string $prefix, string $schoolNam
             INDEX idx_projects_category (category_id),
             INDEX idx_projects_school_public (school_id, is_public),
             INDEX idx_projects_updated (updated_at),
-            INDEX idx_projects_title (title)
+            INDEX idx_projects_title (title),
+            FULLTEXT KEY ft_projects_search (title, subtitle, supervisor, abstract_text, summary_text)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_swedish_ci",
         "CREATE TABLE IF NOT EXISTS $uploadVersions (
             id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -141,6 +145,17 @@ function installer_create_schema(mysqli $conn, string $prefix, string $schoolNam
                 ON UPDATE CASCADE,
             INDEX idx_audit_user_created (user_id, created_at),
             INDEX idx_audit_entity (entity_type, entity_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_swedish_ci",
+        "CREATE TABLE IF NOT EXISTS $emailNotifications (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            recipient_email VARCHAR(190) NOT NULL,
+            subject VARCHAR(190) NOT NULL,
+            body TEXT NOT NULL,
+            status ENUM('sent', 'failed', 'skipped') NOT NULL DEFAULT 'skipped',
+            error_message VARCHAR(255) NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_email_notifications_created (created_at),
+            INDEX idx_email_notifications_recipient (recipient_email)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_swedish_ci",
     ];
 
@@ -180,8 +195,8 @@ function installer_create_schema(mysqli $conn, string $prefix, string $schoolNam
     $role = 'super_admin';
     $status = 'approved';
     $stmt = $conn->prepare(
-        "INSERT INTO $users (id, username, password_hash, full_name, role, school_id, approval_status, reviewed_at)
-         VALUES (1, ?, ?, ?, ?, 1, ?, NOW())
+        "INSERT INTO $users (id, username, email, password_hash, full_name, role, school_id, approval_status, reviewed_at)
+         VALUES (1, ?, NULL, ?, ?, ?, 1, ?, NOW())
          ON DUPLICATE KEY UPDATE username = VALUES(username), password_hash = VALUES(password_hash),
              full_name = VALUES(full_name), role = VALUES(role), approval_status = VALUES(approval_status)"
     );

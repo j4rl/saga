@@ -249,6 +249,7 @@ require_once __DIR__ . '/includes/header.php';
                 <thead>
                 <tr>
                     <th>Användarnamn</th>
+                    <th>E-post</th>
                     <th>Namn</th>
                     <th>Roll</th>
                     <th>Status</th>
@@ -260,6 +261,7 @@ require_once __DIR__ . '/includes/header.php';
                 <?php foreach ($registrations as $registration): ?>
                     <tr>
                         <td><?= h($registration['username']) ?></td>
+                        <td><?= h($registration['email'] ?? '') ?></td>
                         <td><?= h($registration['full_name']) ?></td>
                         <td><?= h(role_label($registration['role'])) ?></td>
                         <td>

@@ -5,7 +5,7 @@ function find_user_by_username(mysqli $conn, string $username): ?array
 {
     return fetch_one_prepared(
         $conn,
-        'SELECT u.id, u.username, u.password_hash, u.full_name, u.role, u.school_id, u.approval_status, s.school_name
+        'SELECT u.id, u.username, u.email, u.password_hash, u.full_name, u.role, u.school_id, u.approval_status, s.school_name
          FROM users u
          INNER JOIN schools s ON s.id = u.school_id
          WHERE u.username = ?
@@ -40,6 +40,7 @@ function login_user(mysqli $conn, string $username, string $password): array
     $_SESSION['user'] = [
         'id' => (int) $user['id'],
         'username' => $user['username'],
+        'email' => $user['email'],
         'full_name' => $user['full_name'],
         'role' => $user['role'],
         'school_id' => (int) $user['school_id'],
@@ -52,9 +53,35 @@ function login_user(mysqli $conn, string $username, string $password): array
     return ['ok' => true];
 }
 
+function change_current_user_password(mysqli $conn, array $user, string $currentPassword, string $newPassword, string $confirmPassword): array
+{
+    if (mb_strlen($newPassword, 'UTF-8') < 8) {
+        return ['ok' => false, 'error' => 'Det nya lösenordet måste vara minst 8 tecken.'];
+    }
+
+    if ($newPassword !== $confirmPassword) {
+        return ['ok' => false, 'error' => 'De nya lösenorden matchar inte.'];
+    }
+
+    $row = fetch_one_prepared($conn, 'SELECT password_hash FROM users WHERE id = ? LIMIT 1', 'i', [(int) $user['id']]);
+    if (!$row || !password_verify($currentPassword, $row['password_hash'])) {
+        return ['ok' => false, 'error' => 'Nuvarande lösenord stämmer inte.'];
+    }
+
+    execute_prepared(
+        $conn,
+        'UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?',
+        'si',
+        [password_hash($newPassword, PASSWORD_DEFAULT), (int) $user['id']]
+    );
+    log_event($conn, (int) $user['id'], 'password_change', 'user', (int) $user['id']);
+
+    return ['ok' => true];
+}
+
 function fetch_registration_requests(mysqli $conn, ?int $schoolId = null): array
 {
-    $sql = 'SELECT u.id, u.username, u.full_name, u.role, u.approval_status, u.created_at, u.reviewed_at, s.school_name
+    $sql = 'SELECT u.id, u.username, u.email, u.full_name, u.role, u.approval_status, u.created_at, u.reviewed_at, s.school_name
             FROM users u
             INNER JOIN schools s ON s.id = u.school_id
             WHERE u.role IN (\'student\', \'teacher\')';
@@ -97,6 +124,14 @@ function review_registration(mysqli $conn, int $userId, string $status, array $r
     }
 
     log_event($conn, (int) $reviewer['id'], 'registration_' . $status, 'user', $userId);
+    notify_user(
+        $conn,
+        $userId,
+        $status === 'approved' ? 'Din SAGA-registrering är godkänd' : 'Din SAGA-registrering har avvisats',
+        $status === 'approved'
+            ? 'Ditt konto är nu godkänt och du kan logga in i SAGA.'
+            : 'Din registrering har avvisats. Kontakta skoladministratören om du har frågor.'
+    );
 
     return true;
 }
