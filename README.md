@@ -20,6 +20,8 @@ Rollerna är:
 - Skoladministratör: godkänner eller avvisar elev- och lärarregistreringar på sin egen skola samt ställer in skolans färger och logotyp.
 - Superadmin: kan skapa skolor med minst en skoladministratör, skapa användare direkt som godkända och hantera registreringar för alla skolor.
 
+Ljus, auto och mörkt läge väljs av användaren i sidhuvudet och standardläget är auto.
+
 ## Databasschema
 
 Databasen finns i `database/schema.sql`.

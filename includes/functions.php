@@ -173,7 +173,7 @@ function fetch_school_profile(mysqli $conn, int $schoolId): ?array
 {
     return fetch_one_prepared(
         $conn,
-        'SELECT id, school_name, theme_mode, theme_custom_enabled, theme_primary, theme_secondary,
+        'SELECT id, school_name, theme_custom_enabled, theme_primary, theme_secondary,
                 theme_bg, theme_surface, theme_text, logo_filename, logo_original_name, logo_mime
          FROM schools
          WHERE id = ?
@@ -241,15 +241,6 @@ function normalize_theme_mode(?string $mode): string
 function current_theme_mode(): string
 {
     return normalize_theme_mode($_COOKIE['saga_theme_mode'] ?? 'auto');
-}
-
-function theme_mode_label(string $mode): string
-{
-    return match ($mode) {
-        'light' => 'Ljust',
-        'dark' => 'Mörkt',
-        default => 'Auto',
-    };
 }
 
 function validate_school_logo_upload(array $file): array
