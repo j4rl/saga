@@ -5,7 +5,7 @@ function find_user_by_username(mysqli $conn, string $username): ?array
 {
     return fetch_one_prepared(
         $conn,
-        'SELECT u.id, u.username, u.password_hash, u.full_name, u.role, u.school_id, s.school_name
+        'SELECT u.id, u.username, u.password_hash, u.full_name, u.role, u.school_id, u.approval_status, s.school_name
          FROM users u
          INNER JOIN schools s ON s.id = u.school_id
          WHERE u.username = ?
@@ -15,12 +15,24 @@ function find_user_by_username(mysqli $conn, string $username): ?array
     );
 }
 
-function login_user(mysqli $conn, string $username, string $password): bool
+function login_user(mysqli $conn, string $username, string $password): array
 {
     $user = find_user_by_username($conn, trim($username));
 
     if (!$user || !password_verify($password, $user['password_hash'])) {
-        return false;
+        return [
+            'ok' => false,
+            'error' => 'Fel användarnamn eller lösenord.',
+        ];
+    }
+
+    if (($user['approval_status'] ?? 'pending') !== 'approved') {
+        return [
+            'ok' => false,
+            'error' => $user['approval_status'] === 'rejected'
+                ? 'Kontot har inte godkänts. Kontakta skoladministratören.'
+                : 'Kontot väntar på godkännande av skoladministratören.',
+        ];
     }
 
     session_regenerate_id(true);
@@ -32,9 +44,59 @@ function login_user(mysqli $conn, string $username, string $password): bool
         'role' => $user['role'],
         'school_id' => (int) $user['school_id'],
         'school_name' => $user['school_name'],
+        'approval_status' => $user['approval_status'],
     ];
 
     log_event($conn, (int) $user['id'], 'login', 'user', (int) $user['id']);
+
+    return ['ok' => true];
+}
+
+function fetch_registration_requests(mysqli $conn, ?int $schoolId = null): array
+{
+    $sql = 'SELECT u.id, u.username, u.full_name, u.role, u.approval_status, u.created_at, u.reviewed_at, s.school_name
+            FROM users u
+            INNER JOIN schools s ON s.id = u.school_id
+            WHERE u.role IN (\'student\', \'teacher\')';
+    $types = '';
+    $params = [];
+
+    if ($schoolId !== null) {
+        $sql .= ' AND u.school_id = ?';
+        $types .= 'i';
+        $params[] = $schoolId;
+    }
+
+    $sql .= ' ORDER BY FIELD(u.approval_status, \'pending\', \'rejected\', \'approved\'), u.created_at DESC, u.id DESC';
+
+    return fetch_all_prepared($conn, $sql, $types, $params);
+}
+
+function review_registration(mysqli $conn, int $userId, string $status, array $reviewer, ?int $schoolId = null): bool
+{
+    if (!in_array($status, ['approved', 'rejected'], true)) {
+        return false;
+    }
+
+    $sql = 'UPDATE users
+            SET approval_status = ?, reviewed_by = ?, reviewed_at = NOW()
+            WHERE id = ? AND role IN (\'student\', \'teacher\')';
+    $types = 'sii';
+    $params = [$status, (int) $reviewer['id'], $userId];
+
+    if ($schoolId !== null) {
+        $sql .= ' AND school_id = ?';
+        $types .= 'i';
+        $params[] = $schoolId;
+    }
+
+    $stmt = execute_prepared($conn, $sql, $types, $params);
+
+    if ($stmt->affected_rows < 1) {
+        return false;
+    }
+
+    log_event($conn, (int) $reviewer['id'], 'registration_' . $status, 'user', $userId);
 
     return true;
 }

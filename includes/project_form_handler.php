@@ -5,15 +5,25 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
 {
     verify_csrf();
 
+    if ($existingProject && (int) $existingProject['is_submitted'] === 1) {
+        return [
+            'ok' => false,
+            'errors' => ['Arbetet är slutgiltigt inlämnat och kan inte ändras.'],
+        ];
+    }
+
     $title = trim((string) ($_POST['title'] ?? ''));
     $subtitle = trim((string) ($_POST['subtitle'] ?? ''));
-    $supervisor = trim((string) ($_POST['supervisor'] ?? ''));
+    $supervisorUserId = (int) ($_POST['supervisor_user_id'] ?? 0);
+    $categoryName = normalize_category_name((string) ($_POST['category_name'] ?? ''));
     $abstractText = trim((string) ($_POST['abstract_text'] ?? ''));
     $summaryText = trim((string) ($_POST['summary_text'] ?? ''));
     $isPublic = isset($_POST['is_public']) ? 1 : 0;
     $isSubmitted = isset($_POST['is_submitted']) ? 1 : 0;
 
     $errors = [];
+    $teacher = null;
+    $category = null;
 
     if ($title === '' || mb_strlen($title) > 180) {
         $errors[] = 'Rubrik är obligatorisk och får vara högst 180 tecken.';
@@ -23,8 +33,22 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
         $errors[] = 'Underrubriken får vara högst 180 tecken.';
     }
 
-    if ($supervisor === '' || mb_strlen($supervisor) > 120) {
-        $errors[] = 'Handledare är obligatorisk och får vara högst 120 tecken.';
+    if ($supervisorUserId <= 0) {
+        $errors[] = 'Välj handledare.';
+    } else {
+        $teacher = fetch_school_teacher($conn, $supervisorUserId, (int) $user['school_id']);
+        if (!$teacher) {
+            $errors[] = 'Handledaren måste vara en godkänd lärare på din skola.';
+        }
+    }
+
+    if ($categoryName === '' || mb_strlen($categoryName) > 120) {
+        $errors[] = 'Kategori är obligatorisk och får vara högst 120 tecken.';
+    } else {
+        $category = find_or_create_project_category($conn, $categoryName);
+        if (!$category) {
+            $errors[] = 'Kategorin kunde inte sparas.';
+        }
     }
 
     if ($abstractText === '') {
@@ -44,7 +68,7 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
         return [
             'ok' => false,
             'errors' => $errors,
-            'data' => compact('title', 'subtitle', 'supervisor', 'abstractText', 'summaryText', 'isPublic', 'isSubmitted'),
+            'data' => compact('title', 'subtitle', 'supervisorUserId', 'categoryName', 'abstractText', 'summaryText', 'isPublic', 'isSubmitted'),
         ];
     }
 
@@ -58,6 +82,8 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
         $conn->begin_transaction();
 
         $submittedAt = $isSubmitted === 1 ? date('Y-m-d H:i:s') : null;
+        $supervisorName = (string) $teacher['full_name'];
+        $categoryId = (int) $category['id'];
 
         if ($existingProject) {
             $projectId = (int) $existingProject['id'];
@@ -66,15 +92,17 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
                 execute_prepared(
                     $conn,
                     'UPDATE projects
-                     SET title = ?, subtitle = ?, supervisor = ?, abstract_text = ?, summary_text = ?,
-                         pdf_filename = ?, pdf_original_name = ?, is_public = ?, is_submitted = ?,
-                         submitted_at = ?, updated_at = NOW()
-                     WHERE id = ? AND user_id = ?',
-                    'sssssssiisii',
+                     SET title = ?, subtitle = ?, category_id = ?, supervisor = ?, supervisor_user_id = ?,
+                         abstract_text = ?, summary_text = ?, pdf_filename = ?, pdf_original_name = ?,
+                         is_public = ?, is_submitted = ?, submitted_at = ?, updated_at = NOW()
+                     WHERE id = ? AND user_id = ? AND is_submitted = 0',
+                    'ssisissssiisii',
                     [
                         $title,
                         $subtitle,
-                        $supervisor,
+                        $categoryId,
+                        $supervisorName,
+                        $supervisorUserId,
                         $abstractText,
                         $summaryText,
                         $storedFile['stored_name'],
@@ -98,20 +126,23 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
                 execute_prepared(
                     $conn,
                     'UPDATE projects
-                     SET title = ?, subtitle = ?, supervisor = ?, abstract_text = ?, summary_text = ?,
-                         is_public = ?, is_submitted = ?, submitted_at = ?, updated_at = NOW()
-                     WHERE id = ? AND user_id = ?',
-                    'sssssiisii',
+                     SET title = ?, subtitle = ?, category_id = ?, supervisor = ?, supervisor_user_id = ?,
+                         abstract_text = ?, summary_text = ?, is_public = ?, is_submitted = ?,
+                         submitted_at = ?, updated_at = NOW()
+                     WHERE id = ? AND user_id = ? AND is_submitted = 0',
+                    'ssisissiisii',
                     [
                         $title,
                         $subtitle,
-                        $supervisor,
+                        $categoryId,
+                        $supervisorName,
+                        $supervisorUserId,
                         $abstractText,
                         $summaryText,
                         $isPublic,
                         $isSubmitted,
                         $submittedAt,
-                        (int) $existingProject['id'],
+                        $projectId,
                         (int) $user['id'],
                     ]
                 );
@@ -125,16 +156,18 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
             $stmt = execute_prepared(
                 $conn,
                 'INSERT INTO projects
-                 (user_id, school_id, title, subtitle, supervisor, abstract_text, summary_text,
-                  pdf_filename, pdf_original_name, is_public, is_submitted, submitted_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                'iisssssssiis',
+                 (user_id, school_id, category_id, title, subtitle, supervisor, supervisor_user_id,
+                  abstract_text, summary_text, pdf_filename, pdf_original_name, is_public, is_submitted, submitted_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                'iiisssissssiis',
                 [
                     (int) $user['id'],
                     (int) $user['school_id'],
+                    $categoryId,
                     $title,
                     $subtitle,
-                    $supervisor,
+                    $supervisorName,
+                    $supervisorUserId,
                     $abstractText,
                     $summaryText,
                     $pdfFilename,
@@ -177,5 +210,3 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
         ];
     }
 }
-
-

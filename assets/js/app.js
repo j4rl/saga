@@ -34,6 +34,87 @@ document.addEventListener('DOMContentLoaded', () => {
       fileInput.reportValidity();
     });
   }
+
+  const categoryInput = document.querySelector('[data-category-autocomplete]');
+  if (categoryInput) {
+    const list = document.getElementById(categoryInput.getAttribute('list'));
+    const options = list ? Array.from(list.options).map((option) => option.value).filter(Boolean) : [];
+    const suggestions = document.createElement('div');
+    suggestions.className = 'autocomplete-list';
+    suggestions.hidden = true;
+    categoryInput.insertAdjacentElement('afterend', suggestions);
+
+    const hideSuggestions = () => {
+      suggestions.hidden = true;
+      suggestions.innerHTML = '';
+    };
+
+    const choose = (value) => {
+      categoryInput.value = value;
+      hideSuggestions();
+      categoryInput.focus();
+    };
+
+    const renderSuggestions = () => {
+      const query = categoryInput.value.trim().toLowerCase();
+      if (!query) {
+        hideSuggestions();
+        return;
+      }
+
+      const matches = options
+        .filter((value) => value.toLowerCase().includes(query))
+        .slice(0, 8);
+
+      if (matches.length === 0) {
+        hideSuggestions();
+        return;
+      }
+
+      suggestions.innerHTML = '';
+      matches.forEach((value) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = value;
+        button.addEventListener('mousedown', (event) => {
+          event.preventDefault();
+          choose(value);
+        });
+        suggestions.appendChild(button);
+      });
+      suggestions.hidden = false;
+    };
+
+    categoryInput.addEventListener('input', renderSuggestions);
+    categoryInput.addEventListener('focus', renderSuggestions);
+    categoryInput.addEventListener('blur', () => {
+      window.setTimeout(hideSuggestions, 120);
+    });
+  }
+
+  const themePreview = document.querySelector('[data-theme-preview]');
+  const themeColorInputs = document.querySelectorAll('[data-theme-color]');
+  const customThemeToggle = document.querySelector('[data-theme-custom-toggle]');
+  if (themePreview && themeColorInputs.length > 0) {
+    const updateThemePreview = () => {
+      const enabled = !customThemeToggle || customThemeToggle.checked;
+      themeColorInputs.forEach((input) => {
+        input.disabled = !enabled;
+        input.closest('.field')?.classList.toggle('muted-control', !enabled);
+        if (enabled) {
+          themePreview.style.setProperty(input.dataset.themeColor, input.value);
+        } else {
+          themePreview.style.removeProperty(input.dataset.themeColor);
+        }
+      });
+    };
+
+    themeColorInputs.forEach((input) => {
+      input.addEventListener('input', updateThemePreview);
+    });
+    customThemeToggle?.addEventListener('change', updateThemePreview);
+    updateThemePreview();
+  }
 });
 
 

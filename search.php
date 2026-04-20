@@ -19,11 +19,11 @@ require_once __DIR__ . '/includes/header.php';
 
     <form class="search-panel search-panel-compact" action="search.php" method="get">
         <div class="field field-grow">
-            <label for="q">Sök i rubrik, underrubrik, abstract och sammanfattning</label>
-            <input id="q" name="q" type="search" value="<?= h($query) ?>" placeholder="Skriv sökord">
+            <label for="q">Sök smart i rubrik, kategori, handledare, abstract och sammanfattning</label>
+            <input id="q" name="q" type="search" value="<?= h($query) ?>" placeholder="Exempel: Spel med Unity">
         </div>
 
-        <?php if (!$viewer || $viewer['role'] !== 'teacher'): ?>
+        <?php if (!$viewer || !in_array($viewer['role'], ['teacher', 'school_admin'], true)): ?>
             <div class="field">
                 <label for="school_id">Skola</label>
                 <select id="school_id" name="school_id">
@@ -42,12 +42,27 @@ require_once __DIR__ . '/includes/header.php';
         <button class="button button-primary" type="submit">Sök</button>
     </form>
 
-    <?php if ($viewer && $viewer['role'] === 'teacher'): ?>
+    <?php if ($viewer && in_array($viewer['role'], ['teacher', 'school_admin'], true)): ?>
         <p class="muted">Du ser alla arbeten på <?= h($viewer['school_name']) ?>, inklusive icke-publika.</p>
-    <?php elseif ($viewer && $viewer['role'] === 'admin'): ?>
-        <p class="muted">Admin ser alla arbeten i systemet.</p>
+    <?php elseif ($viewer && $viewer['role'] === 'super_admin'): ?>
+        <p class="muted">Superadmin ser alla arbeten i systemet.</p>
     <?php else: ?>
         <p class="muted">Endast arbeten som eleven har markerat som publika visas.</p>
+    <?php endif; ?>
+
+    <?php if ($query !== '' && !empty($results['suggestions'])): ?>
+        <div class="search-suggestions" aria-label="Relaterade sökningar">
+            <span>Menade du?</span>
+            <?php foreach ($results['suggestions'] as $suggestion): ?>
+                <?php
+                $suggestionParams = [
+                    'q' => $suggestion,
+                    'school_id' => $schoolId,
+                ];
+                ?>
+                <a href="search.php?<?= h(http_build_query($suggestionParams)) ?>"><?= h($suggestion) ?></a>
+            <?php endforeach; ?>
+        </div>
     <?php endif; ?>
 </section>
 
@@ -75,7 +90,7 @@ require_once __DIR__ . '/includes/header.php';
                         </span>
                     </div>
                     <p class="meta">
-                        <?= h($project['school_name']) ?> · Handledare: <?= h($project['supervisor']) ?>
+                        <?= h($project['school_name']) ?> · <?= h($project['category_name']) ?> · Handledare: <?= h($project['supervisor_name']) ?>
                     </p>
                     <p><?= h(excerpt($project['abstract_text'] ?: $project['summary_text'])) ?></p>
                     <a class="text-link" href="project_view.php?id=<?= (int) $project['id'] ?>">Visa arbete</a>

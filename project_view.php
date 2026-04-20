@@ -52,7 +52,11 @@ require_once __DIR__ . '/includes/header.php';
             </div>
             <div>
                 <dt>Handledare</dt>
-                <dd><?= h($project['supervisor']) ?></dd>
+                <dd><?= h($project['supervisor_name']) ?></dd>
+            </div>
+            <div>
+                <dt>Kategori</dt>
+                <dd><?= h($project['category_name']) ?></dd>
             </div>
             <div>
                 <dt>Skola</dt>

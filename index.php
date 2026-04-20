@@ -53,7 +53,7 @@ require_once __DIR__ . '/includes/header.php';
                             <p class="subtitle"><?= h($project['subtitle']) ?></p>
                         <?php endif; ?>
                     </div>
-                    <p class="meta"><?= h($project['school_name']) ?> · Handledare: <?= h($project['supervisor']) ?></p>
+                    <p class="meta"><?= h($project['school_name']) ?> · <?= h($project['category_name']) ?> · Handledare: <?= h($project['supervisor_name']) ?></p>
                     <p><?= h(excerpt($project['abstract_text'] ?: $project['summary_text'])) ?></p>
                     <a class="text-link" href="project_view.php?id=<?= (int) $project['id'] ?>">Läs mer</a>
                 </article>

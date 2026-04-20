@@ -15,17 +15,21 @@ Applikationen är byggd utan ramverk:
 Rollerna är:
 
 - Oinloggad besökare: kan söka och visa publika arbeten.
-- Elev: kan skapa, redigera och lämna in sitt eget arbete samt söka publika arbeten.
-- Lärare: kan se alla arbeten på sin egen skola, även icke-publika.
-- Admin: kan skapa skolor och användare samt se alla arbeten via sökningen.
+- Elev: kan registrera sig, logga in efter godkännande, skapa, redigera och lämna in sitt eget arbete med kategori och handledare från skolans registrerade lärare samt söka publika arbeten.
+- Lärare: kan registrera sig, logga in efter godkännande, se sina handledda arbeten direkt, se alla arbeten där de är handledare, filtrera fram inlämnade arbeten på den egna skolan och skriva ut en elev-/rubriklista.
+- Skoladministratör: godkänner eller avvisar elev- och lärarregistreringar på sin egen skola samt ställer in skolans tema och logotyp.
+- Superadmin: kan skapa skolor med minst en skoladministratör, skapa användare direkt som godkända och hantera registreringar för alla skolor.
 
 ## Databasschema
 
 Databasen finns i `database/schema.sql`.
 
 - `schools`: skolor.
+- `schools`: innehåller även skolans temaläge, eventuella egna temafärger och logotyp.
+- `categories`: kategorier för gymnasiearbeten.
 - `users`: användare med `password_hash`, roll och skolkoppling.
-- `projects`: metadata, synlighet, inlämningsstatus och aktuell PDF.
+- `users.approval_status`: styr om ett konto väntar, är godkänt eller avvisat.
+- `projects`: metadata, kategori, handledarkoppling, synlighet, inlämningsstatus och aktuell PDF.
 - `upload_versions`: historik för uppladdade PDF-versioner.
 - `audit_log`: enkel logg för viktiga händelser.
 
@@ -58,11 +62,15 @@ login.php                  Inloggning
 logout.php                 Utloggning
 dashboard_student.php      Elevpanel
 dashboard_teacher.php      Lärarpanel
-dashboard_admin.php        Enkel adminpanel
+dashboard_school_admin.php Skoladministratörens godkännandepanel
+dashboard_admin.php        Superadminpanel
+register.php               Självregistrering för elever och lärare
+teacher_project_list.php   Utskriftsvänlig lärarlista
 project_view.php           Metadata och PDF-länkar
 project_edit.php           Elevens uppladdning/redigering
 upload_project.php         Vidarebefordrar till redigeringsformuläret
 download.php               Säker PDF-servering
+school_logo.php            Säker servering av skolans logotyp
 ```
 
 ## Installation med XAMPP
@@ -70,6 +78,13 @@ download.php               Säker PDF-servering
 1. Placera projektmappen i XAMPP:s webbrot, till exempel `C:\xampp\htdocs\saga`.
 2. Starta Apache och MySQL i XAMPP Control Panel.
 3. Öppna phpMyAdmin och importera `database/schema.sql`.
+   Alternativt kan schemat importeras från PowerShell utan att å/ä/ö förvanskas:
+
+```powershell
+& 'C:\xampp\mysql\bin\mysql.exe' --default-character-set=utf8mb4 -u root --execute="SOURCE C:/xampp/htdocs/saga/database/schema.sql"
+```
+
+   Databasen och tabellerna använder `utf8mb4_swedish_ci`.
 4. Kontrollera att PHP-tillägget `mysqli` är aktiverat i XAMPP:s `php.ini`.
 5. Kontrollera databasinställningarna i `config/app.php`.
    Standard är:
@@ -78,7 +93,7 @@ download.php               Säker PDF-servering
 define('DB_HOST', '127.0.0.1');
 define('DB_USER', 'root');
 define('DB_PASS', '');
-define('DB_NAME', 'saga_gymnasiearbeten');
+define('DB_NAME', 'saga');
 ```
 
 6. Se till att PHP/Apache kan skriva i `uploads/`.
@@ -90,7 +105,9 @@ define('DB_NAME', 'saga_gymnasiearbeten');
 
 | Roll | Användarnamn | Lösenord |
 | ---- | ------------ | -------- |
-| Admin | `admin` | `admin123` |
+| Superadmin | `admin` | `admin123` |
+| Skoladministratör | `skoladmin` | `skoladmin123` |
+| Skoladministratör | `skoladmin_sodra` | `skoladmin123` |
 | Elev | `elev` | `elev123` |
 | Lärare | `larare` | `larare123` |
 
@@ -102,6 +119,8 @@ Byt lösenord innan systemet används i en riktig miljö.
 - Alla SQL-frågor använder MySQLi prepared statements.
 - Output escape:as med `htmlspecialchars()`.
 - Alla skrivande formulär skyddas med CSRF-token.
+- Självregistrerade konton får inte logga in förrän de har godkänts av skoladministratör eller superadmin.
+- Slutgiltigt inlämnade arbeten låses för fortsatt elevredigering och får automatiskt inlämningsdatum.
 - PDF-uppladdning kontrollerar filstorlek, filändelse, MIME-typ och PDF-signatur.
 - Uppladdade filer får slumpade filnamn och direktatkomst blockeras med `.htaccess`.
 - `download.php` kontrollerar roll, ägarskap, skola och publik status innan PDF skickas.

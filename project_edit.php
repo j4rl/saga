@@ -7,11 +7,20 @@ require_role('student');
 
 $user = current_user();
 $project = get_project_for_student($conn, (int) $user['id']);
+
+if ($project && (int) $project['is_submitted'] === 1) {
+    set_flash('error', 'Arbetet är slutgiltigt inlämnat och kan inte ändras.');
+    redirect('project_view.php?id=' . (int) $project['id']);
+}
+
+$teachers = fetch_school_teachers($conn, (int) $user['school_id']);
+$categories = fetch_project_categories($conn);
 $errors = [];
 $formData = [
     'title' => $project['title'] ?? '',
     'subtitle' => $project['subtitle'] ?? '',
-    'supervisor' => $project['supervisor'] ?? '',
+    'supervisorUserId' => (int) ($project['supervisor_user_id'] ?? 0),
+    'categoryName' => $project['category_name'] ?? '',
     'abstractText' => $project['abstract_text'] ?? '',
     'summaryText' => $project['summary_text'] ?? '',
     'isPublic' => (int) ($project['is_public'] ?? 0),
@@ -39,7 +48,7 @@ require_once __DIR__ . '/includes/header.php';
 <section class="section section-tight">
     <p class="eyebrow">Elevpanel</p>
     <h1><?= $project ? 'Redigera gymnasiearbete' : 'Ladda upp gymnasiearbete' ?></h1>
-    <p class="muted">PDF-filen sparas med slumpat filnamn och kan bara hämtas via behörighetskontrollerad länk.</p>
+    <p class="muted">När arbetet markeras som slutgiltigt inlämnat låses det för fortsatt redigering.</p>
 </section>
 
 <?php if ($errors): ?>
@@ -58,6 +67,12 @@ require_once __DIR__ . '/includes/header.php';
 
         <div class="form-grid">
             <div class="field">
+                <label for="student_name">Elev</label>
+                <input id="student_name" type="text" value="<?= h($user['full_name']) ?>" disabled>
+                <p class="field-help">Eleven hämtas från ditt konto.</p>
+            </div>
+
+            <div class="field">
                 <label for="title">Rubrik</label>
                 <input id="title" name="title" type="text" maxlength="180" required value="<?= h($formData['title']) ?>">
             </div>
@@ -68,8 +83,45 @@ require_once __DIR__ . '/includes/header.php';
             </div>
 
             <div class="field">
-                <label for="supervisor">Handledare</label>
-                <input id="supervisor" name="supervisor" type="text" maxlength="120" required value="<?= h($formData['supervisor']) ?>">
+                <label for="school">Skola</label>
+                <input id="school" type="text" value="<?= h($user['school_name']) ?>" disabled>
+                <p class="field-help">Skolan hämtas från ditt konto.</p>
+            </div>
+
+            <div class="field">
+                <label for="supervisor_user_id">Handledare</label>
+                <select id="supervisor_user_id" name="supervisor_user_id" required>
+                    <option value="">Välj handledare</option>
+                    <?php foreach ($teachers as $teacher): ?>
+                        <option value="<?= (int) $teacher['id'] ?>" <?= (int) $formData['supervisorUserId'] === (int) $teacher['id'] ? 'selected' : '' ?>>
+                            <?= h($teacher['full_name']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <?php if (!$teachers): ?>
+                    <p class="field-help">Det finns inga godkända lärare registrerade på din skola ännu.</p>
+                <?php endif; ?>
+            </div>
+
+            <div class="field">
+                <label for="category_name">Kategori</label>
+                <input
+                    id="category_name"
+                    name="category_name"
+                    type="text"
+                    maxlength="120"
+                    required
+                    autocomplete="off"
+                    list="category_suggestions"
+                    value="<?= h($formData['categoryName']) ?>"
+                    data-category-autocomplete
+                >
+                <datalist id="category_suggestions">
+                    <?php foreach ($categories as $category): ?>
+                        <option value="<?= h($category['category_name']) ?>"></option>
+                    <?php endforeach; ?>
+                </datalist>
+                <p class="field-help">Välj en befintlig kategori eller skriv en ny.</p>
             </div>
 
             <div class="field">
@@ -103,7 +155,7 @@ require_once __DIR__ . '/includes/header.php';
 
             <label class="check-option">
                 <input type="checkbox" name="is_submitted" value="1" <?= (int) $formData['isSubmitted'] === 1 ? 'checked' : '' ?>>
-                <span>Markera arbetet som inlämnat</span>
+                <span>Lämna in slutgiltigt. När detta är sparat kan arbetet inte ändras.</span>
             </label>
         </div>
 

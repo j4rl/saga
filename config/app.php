@@ -11,7 +11,7 @@ define('MAX_UPLOAD_BYTES', 15 * 1024 * 1024);
 define('DB_HOST', '127.0.0.1');
 define('DB_USER', 'root');
 define('DB_PASS', '');
-define('DB_NAME', 'saga_gymnasiearbeten');
+define('DB_NAME', 'saga');
 
 define('SESSION_NAME', 'saga_session');
 

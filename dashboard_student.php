@@ -17,9 +17,11 @@ require_once __DIR__ . '/includes/header.php';
             <p class="eyebrow">Elevpanel</p>
             <h1>Mitt gymnasiearbete</h1>
         </div>
-        <a class="button button-primary" href="<?= $project ? 'project_edit.php' : 'upload_project.php' ?>">
-            <?= $project ? 'Redigera arbete' : 'Ladda upp arbete' ?>
-        </a>
+        <?php if (!$project): ?>
+            <a class="button button-primary" href="upload_project.php">Ladda upp arbete</a>
+        <?php elseif ((int) $project['is_submitted'] !== 1): ?>
+            <a class="button button-primary" href="project_edit.php">Redigera arbete</a>
+        <?php endif; ?>
     </div>
 
     <?php if (!$project): ?>
@@ -52,7 +54,11 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
                 <div>
                     <dt>Handledare</dt>
-                    <dd><?= h($project['supervisor']) ?></dd>
+                    <dd><?= h($project['supervisor_name']) ?></dd>
+                </div>
+                <div>
+                    <dt>Kategori</dt>
+                    <dd><?= h($project['category_name']) ?></dd>
                 </div>
                 <div>
                     <dt>Uppdaterad</dt>
@@ -72,7 +78,9 @@ require_once __DIR__ . '/includes/header.php';
 
             <div class="action-row">
                 <a class="button button-secondary" href="project_view.php?id=<?= (int) $project['id'] ?>">Visa</a>
-                <a class="button button-primary" href="project_edit.php">Redigera</a>
+                <?php if ((int) $project['is_submitted'] !== 1): ?>
+                    <a class="button button-primary" href="project_edit.php">Redigera</a>
+                <?php endif; ?>
             </div>
         </article>
     <?php endif; ?>

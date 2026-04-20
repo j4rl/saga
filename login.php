@@ -15,13 +15,15 @@ if (is_post()) {
     $username = (string) ($_POST['username'] ?? '');
     $password = (string) ($_POST['password'] ?? '');
 
-    if (login_user($conn, $username, $password)) {
+    $loginResult = login_user($conn, $username, $password);
+
+    if ($loginResult['ok']) {
         $user = current_user();
         set_flash('success', 'Du är inloggad.');
         redirect(dashboard_url_for_role($user['role']));
     }
 
-    $error = 'Fel användarnamn eller lösenord.';
+    $error = $loginResult['error'];
 }
 
 $pageTitle = 'Logga in';
@@ -50,7 +52,11 @@ require_once __DIR__ . '/includes/header.php';
         <button class="button button-primary button-full" type="submit">Logga in</button>
 
         <p class="muted small-text">
-            Testkonton: admin/admin123, elev/elev123, larare/larare123.
+            Saknar du konto? <a href="register.php">Registrera dig här</a>.
+        </p>
+
+        <p class="muted small-text">
+            Testkonton: admin/admin123, skoladmin/skoladmin123, elev/elev123, larare/larare123.
         </p>
     </form>
 </section>
