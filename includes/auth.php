@@ -15,6 +15,39 @@ function find_user_by_username(mysqli $conn, string $username): ?array
     );
 }
 
+function find_user_by_id(mysqli $conn, int $userId): ?array
+{
+    return fetch_one_prepared(
+        $conn,
+        'SELECT u.id, u.username, u.email, u.password_hash, u.full_name, u.role, u.school_id, u.approval_status, s.school_name
+         FROM users u
+         INNER JOIN schools s ON s.id = u.school_id
+         WHERE u.id = ?
+         LIMIT 1',
+        'i',
+        [$userId]
+    );
+}
+
+function sync_current_user_session(mysqli $conn, int $userId): void
+{
+    $user = find_user_by_id($conn, $userId);
+    if (!$user) {
+        return;
+    }
+
+    $_SESSION['user'] = [
+        'id' => (int) $user['id'],
+        'username' => $user['username'],
+        'email' => $user['email'],
+        'full_name' => $user['full_name'],
+        'role' => $user['role'],
+        'school_id' => (int) $user['school_id'],
+        'school_name' => $user['school_name'],
+        'approval_status' => $user['approval_status'],
+    ];
+}
+
 function login_penalty_key(string $username): string
 {
     return hash('sha256', mb_strtolower(trim($username), 'UTF-8'));
@@ -78,18 +111,42 @@ function login_user(mysqli $conn, string $username, string $password): array
 
     session_regenerate_id(true);
 
-    $_SESSION['user'] = [
-        'id' => (int) $user['id'],
-        'username' => $user['username'],
-        'email' => $user['email'],
-        'full_name' => $user['full_name'],
-        'role' => $user['role'],
-        'school_id' => (int) $user['school_id'],
-        'school_name' => $user['school_name'],
-        'approval_status' => $user['approval_status'],
-    ];
+    sync_current_user_session($conn, (int) $user['id']);
 
     log_event($conn, (int) $user['id'], 'login', 'user', (int) $user['id']);
+
+    return ['ok' => true];
+}
+
+function can_edit_own_profile_name(array $user): bool
+{
+    return in_array($user['role'], ['school_admin', 'super_admin'], true);
+}
+
+function update_current_user_profile(mysqli $conn, array $user, string $emailInput, string $fullNameInput): array
+{
+    $email = normalize_email($emailInput);
+    $emailWasProvided = trim($emailInput) !== '';
+    $canEditName = can_edit_own_profile_name($user);
+    $fullName = $canEditName ? trim($fullNameInput) : (string) $user['full_name'];
+
+    if ($emailWasProvided && !$email) {
+        return ['ok' => false, 'error' => 'Ange en giltig e-postadress eller lämna fältet tomt.'];
+    }
+
+    if ($canEditName && ($fullName === '' || mb_strlen($fullName, 'UTF-8') > 160)) {
+        return ['ok' => false, 'error' => 'Namnet måste vara 1-160 tecken.'];
+    }
+
+    execute_prepared(
+        $conn,
+        'UPDATE users SET email = ?, full_name = ?, updated_at = NOW() WHERE id = ?',
+        'ssi',
+        [$email, $fullName, (int) $user['id']]
+    );
+
+    sync_current_user_session($conn, (int) $user['id']);
+    log_event($conn, (int) $user['id'], 'profile_update', 'user', (int) $user['id']);
 
     return ['ok' => true];
 }

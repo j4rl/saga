@@ -300,6 +300,12 @@ function search_projects(mysqli $conn, array $filters, ?array $viewer, int $page
 
     $query = trim((string) ($filters['q'] ?? ''));
     $schoolId = (int) ($filters['school_id'] ?? 0);
+    $categoryId = (int) ($filters['category_id'] ?? 0);
+    $sort = (string) ($filters['sort'] ?? 'relevance');
+    $allowedSorts = ['relevance', 'updated_desc', 'submitted_desc', 'title_asc', 'school_asc', 'category_asc'];
+    if (!in_array($sort, $allowedSorts, true)) {
+        $sort = 'relevance';
+    }
 
     $where = [];
     $types = '';
@@ -311,6 +317,12 @@ function search_projects(mysqli $conn, array $filters, ?array $viewer, int $page
         $where[] = 'p.school_id = ?';
         $types .= 'i';
         $params[] = $schoolId;
+    }
+
+    if ($categoryId > 0) {
+        $where[] = 'p.category_id = ?';
+        $types .= 'i';
+        $params[] = $categoryId;
     }
 
     $whereSql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
@@ -344,12 +356,18 @@ function search_projects(mysqli $conn, array $filters, ?array $viewer, int $page
             }
         }
 
-        usort($scoredRows, static function (array $a, array $b): int {
-            if ($a['_search_score'] !== $b['_search_score']) {
+        usort($scoredRows, static function (array $a, array $b) use ($sort): int {
+            if ($sort === 'relevance' && $a['_search_score'] !== $b['_search_score']) {
                 return $b['_search_score'] <=> $a['_search_score'];
             }
 
-            return strtotime((string) $b['updated_at']) <=> strtotime((string) $a['updated_at']);
+            return match ($sort) {
+                'submitted_desc' => strtotime((string) ($b['submitted_at'] ?? '')) <=> strtotime((string) ($a['submitted_at'] ?? '')),
+                'title_asc' => strnatcasecmp((string) $a['title'], (string) $b['title']),
+                'school_asc' => strnatcasecmp((string) $a['school_name'], (string) $b['school_name']),
+                'category_asc' => strnatcasecmp((string) $a['category_name'], (string) $b['category_name']),
+                default => strtotime((string) $b['updated_at']) <=> strtotime((string) $a['updated_at']),
+            };
         });
 
         $total = count($scoredRows);
@@ -384,6 +402,13 @@ function search_projects(mysqli $conn, array $filters, ?array $viewer, int $page
 
     $listTypes = $types . 'ii';
     $listParams = array_merge($params, [$perPage, $offset]);
+    $orderBy = match ($sort) {
+        'submitted_desc' => 'p.submitted_at DESC, p.updated_at DESC, p.id DESC',
+        'title_asc' => 'p.title ASC, p.id DESC',
+        'school_asc' => 's.school_name ASC, p.updated_at DESC, p.id DESC',
+        'category_asc' => 'c.category_name ASC, p.updated_at DESC, p.id DESC',
+        default => 'p.updated_at DESC, p.id DESC',
+    };
 
     $rows = fetch_all_prepared(
         $conn,
@@ -395,7 +420,7 @@ function search_projects(mysqli $conn, array $filters, ?array $viewer, int $page
          INNER JOIN categories c ON c.id = p.category_id
          LEFT JOIN users su ON su.id = p.supervisor_user_id
          $whereSql
-         ORDER BY p.updated_at DESC, p.id DESC
+         ORDER BY $orderBy
          LIMIT ? OFFSET ?",
         $listTypes,
         $listParams

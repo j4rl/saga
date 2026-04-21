@@ -1,69 +1,121 @@
-:root {
+:root,
+:root[data-theme="light"],
+:root[data-theme="auto"] {
     color-scheme: light;
-    --bg: #f6f7f9;
-    --surface: #ffffff;
-    --surface-strong: #eef4f1;
-    --text: #20242a;
-    --muted: #65717f;
-    --line: #dce2e8;
-    --primary: #235b4e;
-    --primary-strong: #18443a;
-    --secondary: #24527a;
-    --header-bg: rgba(255, 255, 255, 0.96);
-    --input-bg: #ffffff;
-    --danger-bg: #fff0f0;
-    --danger-text: #9b1c1c;
-    --success-bg: #edf8f1;
-    --success-text: #176a36;
-    --warning-bg: #fff7df;
-    --warning-text: #7a5300;
+    --app-bg: #f6f7f9;
+    --app-surface: #ffffff;
+    --app-surface-strong: #eef2f4;
+    --app-text: #20242a;
+    --app-muted: #65717f;
+    --app-line: #dce2e8;
+    --app-input-bg: #ffffff;
+    --app-input-border: #cbd4dc;
+    --app-primary: #235b4e;
+    --app-primary-strong: #18443a;
+    --app-secondary: #24527a;
+    --app-on-primary: #ffffff;
+    --app-header-bg: rgba(255, 255, 255, 0.96);
+    --app-danger-bg: #fff0f0;
+    --app-danger-text: #9b1c1c;
+    --app-success-bg: #edf8f1;
+    --app-success-text: #176a36;
+    --app-warning-bg: #fff7df;
+    --app-warning-text: #7a5300;
+    --app-shadow: 0 12px 35px rgba(32, 36, 42, 0.08);
+    --app-focus-ring: rgba(35, 91, 78, 0.18);
+    --app-hero-overlay-start: rgba(35, 91, 78, 0.94);
+    --app-hero-overlay-end: rgba(36, 82, 122, 0.88);
+    --app-hero-text: #ffffff;
+    --app-hero-muted: rgba(255, 255, 255, 0.88);
+    --app-active-soft: rgba(255, 255, 255, 0.18);
     --radius: 8px;
-    --shadow: 0 12px 35px rgba(32, 36, 42, 0.08);
+    --bg: var(--app-bg);
+    --surface: var(--app-surface);
+    --surface-strong: var(--app-surface-strong);
+    --text: var(--app-text);
+    --muted: var(--app-muted);
+    --line: var(--app-line);
+    --input-bg: var(--app-input-bg);
+    --input-border: var(--app-input-border);
+    --primary: var(--app-primary);
+    --primary-strong: var(--app-primary-strong);
+    --secondary: var(--app-secondary);
+    --on-primary: var(--app-on-primary);
+    --header-bg: var(--app-header-bg);
+    --danger-bg: var(--app-danger-bg);
+    --danger-text: var(--app-danger-text);
+    --success-bg: var(--app-success-bg);
+    --success-text: var(--app-success-text);
+    --warning-bg: var(--app-warning-bg);
+    --warning-text: var(--app-warning-text);
+    --shadow: var(--app-shadow);
+    --focus-ring: var(--app-focus-ring);
+    --hero-overlay-start: var(--app-hero-overlay-start);
+    --hero-overlay-end: var(--app-hero-overlay-end);
+    --hero-text: var(--app-hero-text);
+    --hero-muted: var(--app-hero-muted);
+    --active-soft: var(--app-active-soft);
 }
 
 :root[data-theme="dark"] {
     color-scheme: dark;
-    --bg: #111518;
-    --surface: #1b2227;
-    --surface-strong: #243038;
-    --text: #eef4f6;
-    --muted: #a7b4bd;
-    --line: #34414a;
-    --primary: #66c3a5;
-    --primary-strong: #8bd8bf;
-    --secondary: #8cc7ff;
-    --header-bg: rgba(27, 34, 39, 0.96);
-    --input-bg: #12181d;
-    --danger-bg: #3a1d21;
-    --danger-text: #ffb4bd;
-    --success-bg: #183529;
-    --success-text: #a8efc8;
-    --warning-bg: #382f18;
-    --warning-text: #ffe0a3;
-    --shadow: 0 12px 35px rgba(0, 0, 0, 0.28);
+    --app-bg: #0f1418;
+    --app-surface: #182027;
+    --app-surface-strong: #222d35;
+    --app-text: #eef4f6;
+    --app-muted: #a9b6bf;
+    --app-line: #34414a;
+    --app-input-bg: #111820;
+    --app-input-border: #46545d;
+    --app-primary: #66c3a5;
+    --app-primary-strong: #8bd8bf;
+    --app-secondary: #8cc7ff;
+    --app-on-primary: #0d211a;
+    --app-header-bg: rgba(24, 32, 39, 0.96);
+    --app-danger-bg: #3a1d21;
+    --app-danger-text: #ffb4bd;
+    --app-success-bg: #183529;
+    --app-success-text: #a8efc8;
+    --app-warning-bg: #382f18;
+    --app-warning-text: #ffe0a3;
+    --app-shadow: 0 12px 35px rgba(0, 0, 0, 0.32);
+    --app-focus-ring: rgba(102, 195, 165, 0.25);
+    --app-hero-overlay-start: rgba(13, 29, 25, 0.95);
+    --app-hero-overlay-end: rgba(18, 37, 54, 0.9);
+    --app-hero-text: #f7fbfc;
+    --app-hero-muted: rgba(247, 251, 252, 0.86);
+    --app-active-soft: rgba(255, 255, 255, 0.14);
 }
 
 @media (prefers-color-scheme: dark) {
     :root[data-theme="auto"] {
         color-scheme: dark;
-        --bg: #111518;
-        --surface: #1b2227;
-        --surface-strong: #243038;
-        --text: #eef4f6;
-        --muted: #a7b4bd;
-        --line: #34414a;
-        --primary: #66c3a5;
-        --primary-strong: #8bd8bf;
-        --secondary: #8cc7ff;
-        --header-bg: rgba(27, 34, 39, 0.96);
-        --input-bg: #12181d;
-        --danger-bg: #3a1d21;
-        --danger-text: #ffb4bd;
-        --success-bg: #183529;
-        --success-text: #a8efc8;
-        --warning-bg: #382f18;
-        --warning-text: #ffe0a3;
-        --shadow: 0 12px 35px rgba(0, 0, 0, 0.28);
+        --app-bg: #0f1418;
+        --app-surface: #182027;
+        --app-surface-strong: #222d35;
+        --app-text: #eef4f6;
+        --app-muted: #a9b6bf;
+        --app-line: #34414a;
+        --app-input-bg: #111820;
+        --app-input-border: #46545d;
+        --app-primary: #66c3a5;
+        --app-primary-strong: #8bd8bf;
+        --app-secondary: #8cc7ff;
+        --app-on-primary: #0d211a;
+        --app-header-bg: rgba(24, 32, 39, 0.96);
+        --app-danger-bg: #3a1d21;
+        --app-danger-text: #ffb4bd;
+        --app-success-bg: #183529;
+        --app-success-text: #a8efc8;
+        --app-warning-bg: #382f18;
+        --app-warning-text: #ffe0a3;
+        --app-shadow: 0 12px 35px rgba(0, 0, 0, 0.32);
+        --app-focus-ring: rgba(102, 195, 165, 0.25);
+        --app-hero-overlay-start: rgba(13, 29, 25, 0.95);
+        --app-hero-overlay-end: rgba(18, 37, 54, 0.9);
+        --app-hero-text: #f7fbfc;
+        --app-hero-muted: rgba(247, 251, 252, 0.86);
+        --app-active-soft: rgba(255, 255, 255, 0.14);
     }
 }
 
@@ -141,7 +193,7 @@ button {
     height: 38px;
     border-radius: var(--radius);
     background: var(--primary);
-    color: #fff;
+    color: var(--on-primary);
     font-weight: 700;
 }
 
@@ -180,20 +232,33 @@ button {
     white-space: nowrap;
 }
 
-.school-badge {
-    display: inline-flex;
-    align-items: center;
-    min-height: 32px;
-    padding: 5px 10px;
+.nav-user:hover {
+    color: var(--secondary);
+}
+
+.nav-icon-link {
+    display: inline-grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
     border: 1px solid var(--line);
-    border-radius: 999px;
-    background: var(--surface-strong);
+    border-radius: var(--radius);
+    background: var(--surface);
     color: var(--text);
-    font-weight: 700;
-    max-width: 260px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+}
+
+.nav-icon-link:hover,
+.nav-icon-link:focus-visible {
+    border-color: var(--primary);
+    color: var(--primary);
+    text-decoration: none;
+    outline: none;
+}
+
+.nav-icon-link svg {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
 }
 
 .theme-picker {
@@ -230,7 +295,7 @@ button {
 
 .theme-icon-button[aria-checked="true"] {
     background: var(--primary);
-    color: #fff;
+    color: var(--on-primary);
     font-weight: 700;
     opacity: 1;
 }
@@ -253,12 +318,12 @@ button {
     align-items: center;
     padding: clamp(32px, 6vw, 72px);
     background:
-        linear-gradient(120deg, rgba(35, 91, 78, 0.94), rgba(36, 82, 122, 0.88)),
+        linear-gradient(120deg, var(--hero-overlay-start), var(--hero-overlay-end)),
         url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='500' viewBox='0 0 900 500'%3E%3Crect width='900' height='500' fill='%23f1f5f3'/%3E%3Cg fill='none' stroke='%23a7b8b1' stroke-width='2' opacity='.8'%3E%3Cpath d='M80 110h260v310H80zM400 80h410v80H400zM400 200h410v210H400z'/%3E%3Cpath d='M120 160h180M120 205h180M120 250h120M440 240h320M440 285h260M440 330h300M440 375h210'/%3E%3C/g%3E%3C/svg%3E");
     background-size: cover;
     background-position: center;
     border-radius: var(--radius);
-    color: #fff;
+    color: var(--hero-text);
 }
 
 .hero-content {
@@ -276,7 +341,7 @@ button {
 
 .hero .eyebrow,
 .hero .lead {
-    color: rgba(255, 255, 255, 0.88);
+    color: var(--hero-muted);
 }
 
 h1,
@@ -338,6 +403,51 @@ h3 {
     margin-top: 18px;
 }
 
+.search-panel .field {
+    margin-bottom: 0;
+}
+
+.search-panel-advanced {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.search-main-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 14px;
+    width: 100%;
+}
+
+.search-filters {
+    padding-top: 4px;
+}
+
+.search-filters summary {
+    width: fit-content;
+    min-height: 36px;
+    padding: 6px 10px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface-strong);
+    color: var(--text);
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.search-filters summary:hover,
+.search-filters summary:focus-visible {
+    border-color: var(--primary);
+    outline: none;
+}
+
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(180px, 1fr));
+    gap: 14px;
+    margin-top: 12px;
+}
+
 .brand-logo {
     width: 42px;
     height: 42px;
@@ -374,7 +484,7 @@ h3 {
 
 .filter-tabs a.active {
     background: var(--primary);
-    color: #fff;
+    color: var(--on-primary);
     border-color: var(--primary);
 }
 
@@ -390,8 +500,8 @@ h3 {
 }
 
 .filter-tabs a.active span {
-    background: rgba(255, 255, 255, 0.18);
-    color: #fff;
+    background: var(--active-soft);
+    color: var(--on-primary);
 }
 
 .search-suggestions {
@@ -450,7 +560,7 @@ select,
 textarea {
     width: 100%;
     min-height: 44px;
-    border: 1px solid #cbd4dc;
+    border: 1px solid var(--input-border);
     border-radius: var(--radius);
     padding: 10px 12px;
     background: var(--input-bg);
@@ -464,7 +574,7 @@ textarea {
 input:focus,
 select:focus,
 textarea:focus {
-    outline: 3px solid rgba(35, 91, 78, 0.18);
+    outline: 3px solid var(--focus-ring);
     border-color: var(--primary);
 }
 
@@ -527,7 +637,7 @@ textarea:focus {
 
 .button-primary {
     background: var(--primary);
-    color: #fff;
+    color: var(--on-primary);
 }
 
 .button-primary:hover {
@@ -653,6 +763,45 @@ textarea:focus {
     padding: 24px;
 }
 
+.profile-layout {
+    display: grid;
+    grid-template-columns: minmax(260px, 0.75fr) minmax(320px, 1.25fr);
+    gap: 18px;
+    align-items: start;
+    margin-bottom: 28px;
+}
+
+.profile-summary {
+    display: grid;
+    gap: 20px;
+}
+
+.profile-avatar {
+    display: grid;
+    place-items: center;
+    width: 58px;
+    height: 58px;
+    margin-bottom: 14px;
+    border-radius: var(--radius);
+    background: var(--primary);
+    color: var(--on-primary);
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+
+.profile-definition-grid {
+    grid-template-columns: 1fr;
+}
+
+.profile-forms {
+    display: grid;
+    gap: 18px;
+}
+
+.profile-form-card {
+    width: 100%;
+}
+
 .form-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -696,19 +845,19 @@ textarea:focus {
 .notice-error {
     background: var(--danger-bg);
     color: var(--danger-text);
-    border-color: #ffcaca;
+    border-color: color-mix(in srgb, var(--danger-text) 24%, var(--danger-bg));
 }
 
 .notice-success {
     background: var(--success-bg);
     color: var(--success-text);
-    border-color: #c8ebd2;
+    border-color: color-mix(in srgb, var(--success-text) 24%, var(--success-bg));
 }
 
 .empty-state {
     padding: 22px;
     background: var(--surface);
-    border: 1px dashed #b8c2cc;
+    border: 1px dashed var(--line);
     border-radius: var(--radius);
     color: var(--muted);
 }
@@ -732,7 +881,7 @@ textarea:focus {
 
 .pagination a.active {
     background: var(--primary);
-    color: #fff;
+    color: var(--on-primary);
 }
 
 .table-wrap {
@@ -831,7 +980,7 @@ textarea:focus {
 .segmented-control input:checked + span {
     background: var(--primary);
     border-color: var(--primary);
-    color: #fff;
+    color: var(--on-primary);
 }
 
 .theme-builder {
@@ -953,6 +1102,7 @@ textarea:focus {
     .site-header,
     .main-nav,
     .search-panel,
+    .search-main-row,
     .section-heading,
     .result-title-row,
     .project-header,
@@ -985,12 +1135,22 @@ textarea:focus {
         align-self: flex-start;
     }
 
+    .search-filters,
+    .filter-grid {
+        width: 100%;
+    }
+
+    .filter-grid {
+        grid-template-columns: 1fr;
+    }
+
     .hero {
         padding: 28px 18px;
     }
 
     .form-grid,
     .definition-grid,
+    .profile-layout,
     .toggle-row,
     .admin-grid,
     .settings-layout,
@@ -1008,11 +1168,6 @@ textarea:focus {
 
     .button {
         width: 100%;
-    }
-
-    .school-badge {
-        max-width: none;
-        justify-content: center;
     }
 
     .segmented-control {

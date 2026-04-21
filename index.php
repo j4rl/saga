@@ -13,7 +13,6 @@ if (!app_is_installed()) {
 
 require_once __DIR__ . '/includes/bootstrap.php';
 
-$schools = fetch_schools($conn);
 $latestProjects = latest_public_projects($conn, 5);
 $pageTitle = 'Startsida';
 
@@ -30,15 +29,6 @@ require_once __DIR__ . '/includes/header.php';
             <div class="field field-grow">
                 <label for="q">Sökord</label>
                 <input id="q" name="q" type="search" placeholder="Rubrik, abstract eller sammanfattning">
-            </div>
-            <div class="field">
-                <label for="school_id">Skola</label>
-                <select id="school_id" name="school_id">
-                    <option value="">Alla skolor</option>
-                    <?php foreach ($schools as $school): ?>
-                        <option value="<?= (int) $school['id'] ?>"><?= h($school['school_name']) ?></option>
-                    <?php endforeach; ?>
-                </select>
             </div>
             <button class="button button-primary" type="submit">Sök</button>
         </form>

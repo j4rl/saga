@@ -267,29 +267,50 @@ function normalize_hex_color(?string $value): ?string
     return is_hex_color($value) ? strtolower($value) : null;
 }
 
+function hex_color_luminance(string $color): float
+{
+    $color = ltrim($color, '#');
+    $channels = [
+        hexdec(substr($color, 0, 2)) / 255,
+        hexdec(substr($color, 2, 2)) / 255,
+        hexdec(substr($color, 4, 2)) / 255,
+    ];
+
+    foreach ($channels as &$channel) {
+        $channel = $channel <= 0.03928
+            ? $channel / 12.92
+            : (($channel + 0.055) / 1.055) ** 2.4;
+    }
+    unset($channel);
+
+    return (0.2126 * $channels[0]) + (0.7152 * $channels[1]) + (0.0722 * $channels[2]);
+}
+
 function school_theme_css_vars(array $school): string
 {
     if ((int) ($school['theme_custom_enabled'] ?? 0) !== 1) {
         return '';
     }
 
-    $map = [
+    $accentMap = [
         'theme_primary' => '--primary',
         'theme_secondary' => '--secondary',
-        'theme_bg' => '--bg',
-        'theme_surface' => '--surface',
-        'theme_text' => '--text',
     ];
-    $vars = [];
+    $accentVars = [];
 
-    foreach ($map as $field => $cssVar) {
+    foreach ($accentMap as $field => $cssVar) {
         $color = normalize_hex_color($school[$field] ?? null);
         if ($color) {
-            $vars[] = $cssVar . ': ' . $color;
+            $accentVars[] = $cssVar . ': ' . $color;
+
+            if ($field === 'theme_primary') {
+                $accentVars[] = '--primary-strong: color-mix(in srgb, ' . $color . ' 88%, var(--text))';
+                $accentVars[] = '--on-primary: ' . (hex_color_luminance($color) < 0.42 ? '#ffffff' : '#0d211a');
+            }
         }
     }
 
-    return $vars ? ':root{' . implode(';', $vars) . ';}' : '';
+    return $accentVars ? ':root{' . implode(';', $accentVars) . ';}' : '';
 }
 
 function normalize_theme_mode(?string $mode): string
