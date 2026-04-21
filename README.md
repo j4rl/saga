@@ -2,6 +2,24 @@
 
 SAGA, Svenskt Arkiv för GymnasieArbeten, är en enkel MVP för att lagra, söka och hantera gymnasiearbeten med PDF-uppladdning.
 
+## Funktioner
+
+- Första-körningsinstallation från `index.php` när `config/installed.php` saknas.
+- Valfritt tabellprefix vid installation, med `saga_` som standard.
+- Självregistrering för elever och lärare, med godkännande av skoladministratör eller superadmin.
+- Minst en superadmin kan hantera alla skolor och användare.
+- Skoladministratör kan hantera skolans registreringar, logotyp och egna temafärger.
+- Användaren väljer själv ljust, auto eller mörkt läge via ikonbar i sidhuvudet.
+- Elever kan lämna in gymnasiearbete med rubrik, underrubrik, handledare, skola, kategori, synlighet och slutgiltig inlämning.
+- Kategori kan väljas från befintliga kategorier eller skapas genom fritext/autocomplete.
+- Lärare kan se egna handledningar, alla handledningar och slutgiltigt inlämnade arbeten på skolan.
+- Lärare kan skriva ut eller spara elev-/rubriklista som PDF via webbläsarens utskriftsfunktion.
+- Sökningen använder MySQL FULLTEXT och kompletteras med synonym-/fuzzy-logik för ungefärliga söktermer.
+- PDF-historik sparas i `upload_versions` och visas på projektsidan.
+- E-postnotiser loggas i databasen och skickas via PHP:s `mail()` när servern stödjer det.
+- Användare kan byta lösenord efter inloggning.
+- Cookie-meddelande visas tills användaren godkänt nödvändiga kakor.
+
 ## Systemarkitektur
 
 Applikationen är byggd utan ramverk:
@@ -27,8 +45,7 @@ Användaren behöver godkänna nödvändiga kakor. När det är gjort sparas god
 
 Databasen finns i `database/schema.sql`.
 
-- `schools`: skolor.
-- `schools`: innehåller även skolans eventuella egna temafärger och logotyp.
+- `schools`: skolor, skolans eventuella egna temafärger och logotyp.
 - `categories`: kategorier för gymnasiearbeten.
 - `users`: användare med `password_hash`, roll och skolkoppling.
 - `users.email`: valfri e-postadress för notifieringar.
@@ -46,6 +63,7 @@ Sökningen använder MySQL FULLTEXT mot projektets titel, underrubrik, handledar
 config/
   app.php                  Konstanter för app, databas och uppladdning
   database.php             MySQLi-anslutning
+  installed.php            Skapas av installern och innehåller miljöns DB-inställningar
 includes/
   bootstrap.php            Startar session, databas och gemensamma inkluderingsfiler
   functions.php            CSRF, escaping, flash, DB-hjälpare och rollkrav
@@ -59,9 +77,10 @@ database/
   schema.sql               Databas, tabeller och testdata
 uploads/
   .htaccess                Blockerar direktatkomst i Apache
+  index.html               Tom skyddsfil för kataloglistning
 assets/
   css/style.css            Responsiv layout
-  js/app.js                Formulärhjälp för PDF och teckenräknare
+  js/app.js                Formulärhjälp, tema, cookie-banner och autocomplete
 index.php                  Startsida med sök och senaste publika arbeten
 search.php                 Sökresultat med skolfilter och paginering
 login.php                  Inloggning
@@ -92,6 +111,38 @@ school_logo.php            Säker servering av skolans logotyp
 7. När installationen är klar skapas `config/installed.php`. Så länge filen finns kan installationen inte köras igen.
 
 `config/installed.php` är miljöspecifik och ska inte commitas eller följa med till en nyinstallation.
+Efter installation bör `config/` inte längre vara skrivbar för webbservern, medan `uploads/` fortfarande måste vara skrivbar.
+Om servern inte är Apache behöver direktåtkomst till `uploads/` blockeras med motsvarande Nginx/IIS-regel, eftersom `.htaccess` bara används av Apache.
+
+### E-post
+
+SAGA använder PHP:s inbyggda `mail()` för notiser och loggar utfallet i `email_notifications`.
+På många webbhotell fungerar detta direkt, men för produktion är en riktig SMTP-lösning ett rekommenderat nästa steg.
+Om e-post inte kan skickas påverkas inte registrering, godkännande eller inlämning; felet loggas i notisloggen.
+
+## Uppgradera befintlig databas
+
+För en befintlig lokal installation som skapades innan e-post, notislogg och fulltextindex lades till behöver databasen uppdateras. Kör mot rätt databas och anpassa tabellprefix om installationen använder ett prefix.
+
+```sql
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(190) NULL AFTER username;
+ALTER TABLE users ADD INDEX IF NOT EXISTS idx_users_email (email);
+
+CREATE TABLE IF NOT EXISTS email_notifications (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    recipient_email VARCHAR(190) NOT NULL,
+    subject VARCHAR(190) NOT NULL,
+    body TEXT NOT NULL,
+    status ENUM('sent', 'failed', 'skipped') NOT NULL DEFAULT 'skipped',
+    error_message VARCHAR(255) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_email_notifications_created (created_at),
+    INDEX idx_email_notifications_recipient (recipient_email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_swedish_ci;
+
+ALTER TABLE projects ADD FULLTEXT INDEX IF NOT EXISTS ft_projects_search
+    (title, subtitle, supervisor, abstract_text, summary_text);
+```
 
 ## Manuell import för utveckling
 
@@ -129,9 +180,10 @@ Byt lösenord innan systemet används i en riktig miljö.
 - PDF-uppladdning kontrollerar filstorlek, filändelse, MIME-typ och PDF-signatur.
 - Uppladdade filer får slumpade filnamn och direktatkomst blockeras med `.htaccess`.
 - `download.php` kontrollerar roll, ägarskap, skola och publik status innan PDF skickas.
+- `config/installed.php` ska inte exponeras publikt och ska inte följa med i versionshantering.
 
 ## Vidareutveckling
 
-Rimliga nästa steg är att lägga till rate limiting för inloggning, hårdare säkerhetsheaders, e-post via riktig SMTP-tjänst och mer avancerad rapportering.
+Rimliga nästa steg är att lägga till rate limiting för inloggning, hårdare säkerhetsheaders, e-post via riktig SMTP-tjänst, mer avancerad rapportering och export av e-post-/auditloggar.
 
 

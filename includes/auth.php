@@ -15,11 +15,52 @@ function find_user_by_username(mysqli $conn, string $username): ?array
     );
 }
 
+function login_penalty_key(string $username): string
+{
+    return hash('sha256', mb_strtolower(trim($username), 'UTF-8'));
+}
+
+function login_has_forced_failure(string $username): bool
+{
+    $key = login_penalty_key($username);
+
+    return !empty($_SESSION['forced_login_failures'][$key]);
+}
+
+function login_arm_forced_failure(string $username): void
+{
+    $key = login_penalty_key($username);
+    $_SESSION['forced_login_failures'][$key] = true;
+}
+
+function login_consume_forced_failure(string $username): bool
+{
+    if (!login_has_forced_failure($username)) {
+        return false;
+    }
+
+    $key = login_penalty_key($username);
+    unset($_SESSION['forced_login_failures'][$key]);
+
+    return true;
+}
+
 function login_user(mysqli $conn, string $username, string $password): array
 {
-    $user = find_user_by_username($conn, trim($username));
+    $username = trim($username);
+
+    if (login_consume_forced_failure($username)) {
+        return [
+            'ok' => false,
+            'error' => 'Fel användarnamn eller lösenord.',
+        ];
+    }
+
+    $user = find_user_by_username($conn, $username);
 
     if (!$user || !password_verify($password, $user['password_hash'])) {
+        login_arm_forced_failure($username);
+
         return [
             'ok' => false,
             'error' => 'Fel användarnamn eller lösenord.',
