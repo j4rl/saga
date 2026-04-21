@@ -32,6 +32,20 @@ function cookie_consent_accepted(): bool
     return ($_COOKIE['saga_cookie_consent'] ?? '') === 'accepted';
 }
 
+function clear_cookie_consent(): void
+{
+    $isHttps = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+
+    setcookie('saga_cookie_consent', '', [
+        'expires' => time() - 3600,
+        'path' => '/',
+        'secure' => $isHttps,
+        'httponly' => false,
+        'samesite' => 'Lax',
+    ]);
+    unset($_COOKIE['saga_cookie_consent']);
+}
+
 function render_cookie_notice(): void
 {
     if (cookie_consent_accepted()) {

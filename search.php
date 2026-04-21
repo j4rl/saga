@@ -20,6 +20,7 @@ $results = search_projects($conn, ['q' => $query, 'school_id' => $schoolId, 'cat
 $pageTitle = 'Sök arbeten';
 $canChooseSchool = !$viewer || !in_array($viewer['role'], ['teacher', 'school_admin'], true);
 $hasAdvancedFilters = ($canChooseSchool && $hasSchoolFilter) || $categoryId > 0 || $sort !== 'relevance';
+$openAdvancedSearch = $hasAdvancedFilters || (string) ($_GET['advanced'] ?? '') === '1';
 
 require_once __DIR__ . '/includes/header.php';
 ?>
@@ -37,7 +38,7 @@ require_once __DIR__ . '/includes/header.php';
             <button class="button button-primary" type="submit">Sök</button>
         </div>
 
-        <details class="search-filters" <?= $hasAdvancedFilters ? 'open' : '' ?>>
+        <details class="search-filters" <?= $openAdvancedSearch ? 'open' : '' ?>>
             <summary>Avancerad sökning</summary>
             <div class="filter-grid">
                 <div class="field">

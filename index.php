@@ -13,6 +13,13 @@ if (!app_is_installed()) {
 
 require_once __DIR__ . '/includes/bootstrap.php';
 
+$viewer = current_user();
+$schoolId = (int) ($viewer['school_id'] ?? 0);
+$categoryId = 0;
+$sort = 'relevance';
+$schools = fetch_schools($conn);
+$categories = fetch_project_categories($conn);
+$canChooseSchool = !$viewer || !in_array($viewer['role'], ['teacher', 'school_admin'], true);
 $latestProjects = latest_public_projects($conn, 5);
 $pageTitle = 'Startsida';
 
@@ -25,12 +32,60 @@ require_once __DIR__ . '/includes/header.php';
         <h1>Sök, läs och hantera gymnasiearbeten.</h1>
         <p class="lead">Hitta publika arbeten från flera skolor eller logga in för att lämna in och granska arbeten.</p>
 
-        <form class="search-panel" action="search.php" method="get">
-            <div class="field field-grow">
-                <label for="q">Sökord</label>
-                <input id="q" name="q" type="search" placeholder="Rubrik, abstract eller sammanfattning">
+        <form class="search-panel search-panel-advanced" action="search.php" method="get">
+            <div class="search-main-row">
+                <div class="field field-grow">
+                    <label for="q">Sök smart i rubrik, kategori, handledare, abstract och sammanfattning</label>
+                    <input id="q" name="q" type="search" placeholder="Exempel: Spel med Unity">
+                </div>
+
+                <button class="button button-primary" type="submit">Sök</button>
             </div>
-            <button class="button button-primary" type="submit">Sök</button>
+
+            <details class="search-filters">
+                <summary>Avancerad sökning</summary>
+                <div class="filter-grid">
+                    <div class="field">
+                        <label for="sort">Sortering</label>
+                        <select id="sort" name="sort">
+                            <option value="relevance" selected>Relevans</option>
+                            <option value="updated_desc">Senast uppdaterad</option>
+                            <option value="submitted_desc">Senast inlämnad</option>
+                            <option value="title_asc">Rubrik A-Ö</option>
+                            <option value="school_asc">Skola A-Ö</option>
+                            <option value="category_asc">Kategori A-Ö</option>
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label for="category_id">Kategori</label>
+                        <select id="category_id" name="category_id">
+                            <option value="">Alla kategorier</option>
+                            <?php foreach ($categories as $category): ?>
+                                <option value="<?= (int) $category['id'] ?>" <?= $categoryId === (int) $category['id'] ? 'selected' : '' ?>>
+                                    <?= h($category['category_name']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <?php if ($canChooseSchool): ?>
+                        <div class="field">
+                            <label for="school_id">Skola</label>
+                            <select id="school_id" name="school_id">
+                                <option value="">Alla skolor</option>
+                                <?php foreach ($schools as $school): ?>
+                                    <option value="<?= (int) $school['id'] ?>" <?= $schoolId === (int) $school['id'] ? 'selected' : '' ?>>
+                                        <?= h($school['school_name']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    <?php else: ?>
+                        <input type="hidden" name="school_id" value="<?= (int) $viewer['school_id'] ?>">
+                    <?php endif; ?>
+                </div>
+            </details>
         </form>
     </div>
 </section>

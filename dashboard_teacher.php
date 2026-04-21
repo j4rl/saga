@@ -57,6 +57,7 @@ require_once __DIR__ . '/includes/header.php';
             </select>
         </div>
         <button class="button button-primary" type="submit">Sök</button>
+        <button class="button button-secondary" type="submit" formaction="search.php" formmethod="get" name="advanced" value="1">Avancerad sökning</button>
     </form>
 
     <div class="action-row teacher-export-actions">

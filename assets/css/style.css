@@ -390,6 +390,7 @@ h3 {
 .search-panel {
     display: flex;
     align-items: flex-end;
+    flex-wrap: wrap;
     gap: 14px;
     padding: 16px;
     margin-top: 26px;
@@ -415,6 +416,7 @@ h3 {
 .search-main-row {
     display: flex;
     align-items: flex-end;
+    flex-wrap: wrap;
     gap: 14px;
     width: 100%;
 }

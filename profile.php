@@ -6,6 +6,7 @@ require_login();
 
 $user = current_user();
 $canEditName = can_edit_own_profile_name($user);
+$cookieConsentAccepted = cookie_consent_accepted();
 $profileError = null;
 $passwordError = null;
 
@@ -43,10 +44,15 @@ if (is_post()) {
         }
 
         $passwordError = $result['error'];
+    } elseif ($action === 'clear_cookie_consent') {
+        clear_cookie_consent();
+        set_flash('success', 'Godkännandet av kakor har tagits bort.');
+        redirect('profile.php');
     }
 }
 
 $user = current_user();
+$cookieConsentAccepted = cookie_consent_accepted();
 $pageTitle = 'Profil';
 require_once __DIR__ . '/includes/header.php';
 ?>
@@ -143,6 +149,29 @@ require_once __DIR__ . '/includes/header.php';
             </div>
 
             <button class="button button-primary" type="submit">Spara nytt lösenord</button>
+        </form>
+
+        <form class="form-card profile-form-card" method="post" action="profile.php">
+            <?= csrf_field() ?>
+            <input type="hidden" name="action" value="clear_cookie_consent">
+            <h2>Kakor</h2>
+
+            <p class="cookie-status">
+                <span class="status-pill <?= $cookieConsentAccepted ? 'status-approved' : 'status-pending' ?>">
+                    <?= $cookieConsentAccepted ? 'Godkända' : 'Inte godkända' ?>
+                </span>
+            </p>
+
+            <p class="muted">
+                SAGA använder nödvändiga kakor för att hålla dig inloggad, skydda formulär och komma ihåg lokala inställningar som tema.
+                Samtyckeskakan sparar bara att du har godkänt kakor, så att frågan inte behöver visas varje gång.
+            </p>
+
+            <?php if ($cookieConsentAccepted): ?>
+                <button class="button button-secondary" type="submit">Ta bort godkännande</button>
+            <?php else: ?>
+                <p class="field-help">Du kan godkänna kakor igen via meddelandet längst ner på sidan.</p>
+            <?php endif; ?>
         </form>
     </div>
 </section>

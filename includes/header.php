@@ -62,7 +62,6 @@ $themeCss = $schoolProfile ? school_theme_css_vars($schoolProfile) : '';
             <a class="nav-user" href="profile.php"><?= h($user['full_name']) ?></a>
             <a class="button button-ghost" href="logout.php">Logga ut</a>
         <?php else: ?>
-            <a href="register.php">Registrera</a>
             <a class="button button-primary" href="login.php">Logga in</a>
         <?php endif; ?>
     </nav>
