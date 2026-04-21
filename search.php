@@ -140,6 +140,12 @@ require_once __DIR__ . '/includes/header.php';
                     </p>
                     <p><?= h(excerpt($project['abstract_text'] ?: $project['summary_text'])) ?></p>
                     <a class="text-link" href="project_view.php?id=<?= (int) $project['id'] ?>">Visa arbete</a>
+                    <?php if ($viewer && can_edit_project($project, $viewer)): ?>
+                        <span aria-hidden="true"> · </span>
+                        <a class="text-link" href="project_edit.php?id=<?= (int) $project['id'] ?>">
+                            <?= can_edit_project_content($project, $viewer) ? 'Redigera arbete' : 'Hantera inlämning' ?>
+                        </a>
+                    <?php endif; ?>
                 </article>
             <?php endforeach; ?>
         </div>

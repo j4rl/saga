@@ -87,7 +87,9 @@ require_once __DIR__ . '/includes/header.php';
 
         <?php if ($viewer && can_edit_project($project, $viewer)): ?>
             <div class="action-row">
-                <a class="button button-primary" href="project_edit.php">Redigera arbete</a>
+                <a class="button button-primary" href="project_edit.php?id=<?= (int) $project['id'] ?>">
+                    <?= can_edit_project_content($project, $viewer) ? 'Redigera arbete' : 'Hantera inlämning' ?>
+                </a>
             </div>
         <?php endif; ?>
     </section>

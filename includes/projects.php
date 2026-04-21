@@ -74,9 +74,30 @@ function can_view_project(array $project, ?array $viewer): bool
 
 function can_edit_project(array $project, array $viewer): bool
 {
+    return can_edit_project_content($project, $viewer)
+        || can_unlock_project_submission($project, $viewer);
+}
+
+function can_edit_project_content(array $project, array $viewer): bool
+{
+    if ($viewer['role'] === 'super_admin') {
+        return true;
+    }
+
+    if ($viewer['role'] === 'school_admin') {
+        return (int) $project['school_id'] === (int) $viewer['school_id'];
+    }
+
     return $viewer['role'] === 'student'
         && (int) $project['user_id'] === (int) $viewer['id']
         && (int) $project['is_submitted'] !== 1;
+}
+
+function can_unlock_project_submission(array $project, array $viewer): bool
+{
+    return $viewer['role'] === 'teacher'
+        && (int) $project['school_id'] === (int) $viewer['school_id']
+        && (int) $project['is_submitted'] === 1;
 }
 
 function fetch_project_versions(mysqli $conn, int $projectId): array

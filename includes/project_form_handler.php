@@ -5,11 +5,33 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
 {
     verify_csrf();
 
-    if ($existingProject && (int) $existingProject['is_submitted'] === 1) {
+    $canEditContent = $existingProject
+        ? can_edit_project_content($existingProject, $user)
+        : $user['role'] === 'student';
+    $canUnlockSubmission = $existingProject ? can_unlock_project_submission($existingProject, $user) : false;
+
+    if (!$canEditContent && !$canUnlockSubmission) {
         return [
             'ok' => false,
-            'errors' => ['Arbetet är slutgiltigt inlämnat och kan inte ändras.'],
+            'errors' => ['Du har inte behörighet att ändra arbetet.'],
         ];
+    }
+
+    if ($existingProject && !$canEditContent && $canUnlockSubmission) {
+        $projectId = (int) $existingProject['id'];
+        $isSubmitted = isset($_POST['is_submitted']) ? 1 : 0;
+
+        if ($isSubmitted === 0) {
+            execute_prepared(
+                $conn,
+                'UPDATE projects SET is_submitted = 0, submitted_at = NULL, updated_at = NOW() WHERE id = ? AND is_submitted = 1',
+                'i',
+                [$projectId]
+            );
+            log_event($conn, (int) $user['id'], 'project_unlock_submission', 'project', $projectId);
+        }
+
+        return ['ok' => true, 'project_id' => $projectId, 'unlocked' => $isSubmitted === 0];
     }
 
     $title = trim((string) ($_POST['title'] ?? ''));
@@ -24,6 +46,9 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
     $errors = [];
     $teacher = null;
     $category = null;
+    $projectSchoolId = (int) ($existingProject['school_id'] ?? $user['school_id']);
+    $projectOwnerId = (int) ($existingProject['user_id'] ?? $user['id']);
+    $studentName = (string) ($existingProject['student_name'] ?? $user['full_name']);
 
     if ($title === '' || mb_strlen($title) > 180) {
         $errors[] = 'Rubrik är obligatorisk och får vara högst 180 tecken.';
@@ -36,7 +61,7 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
     if ($supervisorUserId <= 0) {
         $errors[] = 'Välj handledare.';
     } else {
-        $teacher = fetch_school_teacher($conn, $supervisorUserId, (int) $user['school_id']);
+        $teacher = fetch_school_teacher($conn, $supervisorUserId, $projectSchoolId);
         if (!$teacher) {
             $errors[] = 'Handledaren måste vara en godkänd lärare på din skola.';
         }
@@ -81,9 +106,17 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
 
         $conn->begin_transaction();
 
-        $submittedAt = $isSubmitted === 1 ? date('Y-m-d H:i:s') : null;
+        $submittedAt = null;
+        if ($isSubmitted === 1) {
+            $submittedAt = $existingProject
+                && (int) $existingProject['is_submitted'] === 1
+                && !empty($existingProject['submitted_at'])
+                    ? (string) $existingProject['submitted_at']
+                    : date('Y-m-d H:i:s');
+        }
         $supervisorName = (string) $teacher['full_name'];
         $categoryId = (int) $category['id'];
+        $wasSubmitted = $existingProject && (int) $existingProject['is_submitted'] === 1;
 
         if ($existingProject) {
             $projectId = (int) $existingProject['id'];
@@ -95,8 +128,8 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
                      SET title = ?, subtitle = ?, category_id = ?, supervisor = ?, supervisor_user_id = ?,
                          abstract_text = ?, summary_text = ?, pdf_filename = ?, pdf_original_name = ?,
                          is_public = ?, is_submitted = ?, submitted_at = ?, updated_at = NOW()
-                     WHERE id = ? AND user_id = ? AND is_submitted = 0',
-                    'ssisissssiisii',
+                     WHERE id = ?',
+                    'ssisissssiisi',
                     [
                         $title,
                         $subtitle,
@@ -111,7 +144,6 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
                         $isSubmitted,
                         $submittedAt,
                         $projectId,
-                        (int) $user['id'],
                     ]
                 );
 
@@ -129,8 +161,8 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
                      SET title = ?, subtitle = ?, category_id = ?, supervisor = ?, supervisor_user_id = ?,
                          abstract_text = ?, summary_text = ?, is_public = ?, is_submitted = ?,
                          submitted_at = ?, updated_at = NOW()
-                     WHERE id = ? AND user_id = ? AND is_submitted = 0',
-                    'ssisissiisii',
+                     WHERE id = ?',
+                    'ssisissiisi',
                     [
                         $title,
                         $subtitle,
@@ -143,7 +175,6 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
                         $isSubmitted,
                         $submittedAt,
                         $projectId,
-                        (int) $user['id'],
                     ]
                 );
             }
@@ -161,8 +192,8 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                 'iiisssissssiis',
                 [
-                    (int) $user['id'],
-                    (int) $user['school_id'],
+                    $projectOwnerId,
+                    $projectSchoolId,
                     $categoryId,
                     $title,
                     $subtitle,
@@ -193,14 +224,14 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
 
         $conn->commit();
 
-        if ($isSubmitted === 1 && $teacher) {
+        if ($isSubmitted === 1 && !$wasSubmitted && $teacher) {
             $teacherUser = fetch_one_prepared($conn, 'SELECT email FROM users WHERE id = ? LIMIT 1', 'i', [(int) $teacher['id']]);
             if ($teacherUser && !empty($teacherUser['email'])) {
                 send_email_notification(
                     $conn,
                     (string) $teacherUser['email'],
                     'Gymnasiearbete slutgiltigt inlämnat',
-                    $user['full_name'] . ' har lämnat in "' . $title . '" slutgiltigt i SAGA.'
+                    $studentName . ' har lämnat in "' . $title . '" slutgiltigt i SAGA.'
                 );
             }
         }
