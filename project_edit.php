@@ -13,23 +13,28 @@ if (!$project && $user['role'] === 'student' && $projectId <= 0) {
     $project = get_project_for_student($conn, (int) $user['id']);
 }
 
-if (!$project && ($projectId > 0 || $user['role'] !== 'student')) {
+if (!$project && $projectId > 0) {
     http_response_code(404);
     $pageTitle = 'Arbete saknas';
     require_once __DIR__ . '/includes/header.php';
     ?>
     <section class="section section-tight">
         <h1>Arbetet kunde inte redigeras</h1>
-        <p class="empty-state">Arbetet finns inte eller så saknar du behörighet att ändra det.</p>
+        <p class="empty-state">Arbetet finns inte.</p>
     </section>
     <?php
     require_once __DIR__ . '/includes/footer.php';
     exit;
 }
 
+if (!$project && $user['role'] !== 'student') {
+    set_flash('error', 'Du har inte behörighet att ändra arbetet.');
+    redirect('index.php');
+}
+
 if ($project && !can_edit_project($project, $user)) {
     set_flash('error', 'Du har inte behörighet att ändra arbetet.');
-    redirect('project_view.php?id=' . (int) $project['id']);
+    redirect('index.php');
 }
 
 $canEditContent = $project ? can_edit_project_content($project, $user) : true;

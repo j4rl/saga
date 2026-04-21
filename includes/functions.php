@@ -133,7 +133,7 @@ function require_login(): void
 {
     if (!is_logged_in()) {
         set_flash('error', 'Du måste logga in för att komma åt sidan.');
-        redirect('login.php');
+        redirect('index.php');
     }
 }
 
@@ -145,8 +145,8 @@ function require_role(array|string $roles): void
     $user = current_user();
 
     if (!$user || !in_array($user['role'], $allowedRoles, true)) {
-        http_response_code(403);
-        exit('Du har inte behörighet att visa sidan.');
+        set_flash('error', 'Du har inte behörighet att visa sidan.');
+        redirect('index.php');
     }
 }
 

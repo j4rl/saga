@@ -9,7 +9,12 @@ $projectId = $version ? (int) $version['project_id'] : (int) ($_GET['id'] ?? 0);
 $project = $projectId > 0 ? get_project_by_id($conn, $projectId) : null;
 $viewer = current_user();
 
-if (!$project || !can_view_project($project, $viewer) || (!$version && empty($project['pdf_filename']))) {
+if ($project && !can_view_project($project, $viewer)) {
+    set_flash('error', 'Du har inte behörighet att öppna filen.');
+    redirect('index.php');
+}
+
+if (!$project || (!$version && empty($project['pdf_filename']))) {
     http_response_code(404);
     exit('Filen kunde inte hittas.');
 }

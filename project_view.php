@@ -7,14 +7,19 @@ $projectId = (int) ($_GET['id'] ?? 0);
 $project = $projectId > 0 ? get_project_by_id($conn, $projectId) : null;
 $viewer = current_user();
 
-if (!$project || !can_view_project($project, $viewer)) {
+if ($project && !can_view_project($project, $viewer)) {
+    set_flash('error', 'Du har inte behörighet att visa arbetet.');
+    redirect('index.php');
+}
+
+if (!$project) {
     http_response_code(404);
     $pageTitle = 'Arbete saknas';
     require_once __DIR__ . '/includes/header.php';
     ?>
     <section class="section section-tight">
         <h1>Arbetet kunde inte visas</h1>
-        <p class="empty-state">Arbetet finns inte eller så saknar du behörighet att visa det.</p>
+        <p class="empty-state">Arbetet finns inte.</p>
     </section>
     <?php
     require_once __DIR__ . '/includes/footer.php';
