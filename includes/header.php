@@ -3,6 +3,11 @@ declare(strict_types=1);
 
 $pageTitle = $pageTitle ?? APP_NAME;
 $user = current_user();
+$userFirstName = '';
+if ($user) {
+    $nameParts = preg_split('/\s+/', trim((string) $user['full_name']));
+    $userFirstName = $nameParts && $nameParts[0] !== '' ? $nameParts[0] : (string) $user['username'];
+}
 $schoolProfile = $user ? fetch_school_profile($conn, (int) $user['school_id']) : null;
 $themeMode = current_theme_mode();
 $themeCss = $schoolProfile ? school_theme_css_vars($schoolProfile) : '';
@@ -58,11 +63,30 @@ $themeCss = $schoolProfile ? school_theme_css_vars($schoolProfile) : '';
             </button>
         </div>
         <?php if ($user): ?>
-            <a href="<?= h(dashboard_url_for_role($user['role'])) ?>">Översikt</a>
-            <a class="nav-user" href="profile.php"><?= h($user['full_name']) ?></a>
-            <a class="button button-ghost" href="logout.php">Logga ut</a>
+            <a class="nav-action" href="<?= h(dashboard_url_for_role($user['role'])) ?>" title="Översikt">
+                <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+                    <path d="M4 11.2 12 4l8 7.2v8.3a.5.5 0 0 1-.5.5h-5.2v-5.7H9.7V20H4.5a.5.5 0 0 1-.5-.5v-8.3Zm2 1V18h1.7v-5.7h8.6V18H18v-5.8l-6-5.4-6 5.4Z"/>
+                </svg>
+                <span>Översikt</span>
+            </a>
+            <a class="nav-user" href="profile.php" title="Profilinställningar">
+                <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+                    <path d="M12 4.5a4.3 4.3 0 1 1 0 8.6 4.3 4.3 0 0 1 0-8.6Zm0 2a2.3 2.3 0 1 0 0 4.6 2.3 2.3 0 0 0 0-4.6Zm0 8.1c4 0 7 2 7 4.8V20H5v-.6c0-2.8 3-4.8 7-4.8Zm0 2c-2.3 0-4.1.8-4.7 1.4h9.4c-.6-.6-2.4-1.4-4.7-1.4Z"/>
+                </svg>
+                <span><?= h($userFirstName) ?></span>
+            </a>
+            <a class="nav-icon-link nav-logout" href="logout.php" aria-label="Logga ut" title="Logga ut">
+                <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+                    <path d="M5 4h7v2H7v12h5v2H5V4Zm10.6 4.4 4.1 4.1-4.1 4.1-1.4-1.4 1.7-1.7H10v-2h5.9l-1.7-1.7 1.4-1.4Z"/>
+                </svg>
+            </a>
         <?php else: ?>
-            <a class="button button-primary" href="login.php">Logga in</a>
+            <a class="button button-primary nav-login" href="login.php">
+                <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+                    <path d="M10 4h9v16h-9v-2h7V6h-7V4Zm.4 4.4 4.1 4.1-4.1 4.1L9 15.2l1.7-1.7H4v-2h6.7L9 9.8l1.4-1.4Z"/>
+                </svg>
+                <span>Logga in</span>
+            </a>
         <?php endif; ?>
     </nav>
 </header>

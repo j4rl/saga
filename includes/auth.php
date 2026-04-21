@@ -203,6 +203,16 @@ function review_registration(mysqli $conn, int $userId, string $status, array $r
         return false;
     }
 
+    if (!in_array($reviewer['role'] ?? '', ['school_admin', 'super_admin'], true)) {
+        return false;
+    }
+
+    if (($reviewer['role'] ?? '') === 'school_admin') {
+        if ($schoolId === null || (int) $schoolId !== (int) $reviewer['school_id']) {
+            return false;
+        }
+    }
+
     $sql = 'UPDATE users
             SET approval_status = ?, reviewed_by = ?, reviewed_at = NOW()
             WHERE id = ? AND role IN (\'student\', \'teacher\')';

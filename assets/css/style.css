@@ -220,20 +220,58 @@ button {
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 16px;
+    gap: 10px;
     flex-wrap: wrap;
 }
 
+.nav-action,
 .nav-user {
-    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 36px;
     max-width: 220px;
+    padding: 0 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+    font-weight: 700;
+    line-height: 1;
+}
+
+.nav-action span,
+.nav-user span {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.nav-user:hover {
-    color: var(--secondary);
+.nav-action svg,
+.nav-user svg,
+.nav-login svg {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    fill: currentColor;
+}
+
+.nav-action:hover,
+.nav-action:focus-visible,
+.nav-user:hover,
+.nav-user:focus-visible {
+    border-color: var(--primary);
+    background: var(--surface-strong);
+    color: var(--primary);
+    text-decoration: none;
+    outline: none;
+}
+
+.nav-user {
+    border-color: color-mix(in srgb, var(--primary) 36%, var(--line));
+    background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+    color: var(--primary);
 }
 
 .nav-icon-link {
@@ -259,6 +297,16 @@ button {
     width: 20px;
     height: 20px;
     fill: currentColor;
+}
+
+.nav-logout {
+    color: var(--muted);
+}
+
+.button.nav-login {
+    gap: 8px;
+    min-height: 36px;
+    padding: 0 14px;
 }
 
 .theme-picker {
@@ -1127,15 +1175,18 @@ textarea:focus {
     .main-nav {
         width: 100%;
         gap: 10px;
+        flex-direction: row;
+        justify-content: flex-start;
     }
 
+    .nav-action,
     .nav-user {
+        flex: 1 1 132px;
         max-width: none;
     }
 
     .theme-picker {
-        width: fit-content;
-        align-self: flex-start;
+        flex: 0 0 auto;
     }
 
     .search-filters,
