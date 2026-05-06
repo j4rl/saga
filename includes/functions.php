@@ -20,6 +20,49 @@ function start_secure_session(): void
     ]);
 
     session_start();
+
+    $now = time();
+    $lastActivity = (int) ($_SESSION['last_activity_at'] ?? 0);
+    if ($lastActivity > 0 && $now - $lastActivity > SESSION_IDLE_TIMEOUT_SECONDS) {
+        $_SESSION = [];
+        if (ini_get('session.use_cookies')) {
+            $params = session_get_cookie_params();
+            setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'], $params['secure'], $params['httponly']);
+        }
+        session_destroy();
+        session_start();
+    }
+    $_SESSION['last_activity_at'] = $now;
+}
+
+function send_security_headers(): void
+{
+    if (headers_sent()) {
+        return;
+    }
+
+    $isHttps = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+    $csp = [
+        "default-src 'self'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        defined('SAGA_ALLOW_SELF_FRAME') && SAGA_ALLOW_SELF_FRAME ? "frame-ancestors 'self'" : "frame-ancestors 'none'",
+        "object-src 'none'",
+        "img-src 'self' data:",
+        "script-src 'self' 'unsafe-inline'",
+        "style-src 'self' 'unsafe-inline'",
+        "connect-src 'self'",
+    ];
+
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: ' . (defined('SAGA_ALLOW_SELF_FRAME') && SAGA_ALLOW_SELF_FRAME ? 'SAMEORIGIN' : 'DENY'));
+    header('Referrer-Policy: same-origin');
+    header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+    header('Content-Security-Policy: ' . implode('; ', $csp));
+
+    if ($isHttps) {
+        header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+    }
 }
 
 function app_is_installed(): bool
@@ -55,7 +98,7 @@ function render_cookie_notice(): void
     <div class="cookie-banner" data-cookie-banner role="region" aria-label="Information om kakor">
         <div>
             <strong>Kakor krävs</strong>
-            <p>SAGA använder nödvändiga kakor för inloggning, säkerhet och dina lokala inställningar. Du behöver godkänna kakor för att använda tjänsten.</p>
+            <p>SAGA använder nödvändiga kakor för inloggning, säkerhet och dina lokala inställningar. Du behöver godkänna kakor för att använda tjänsten. <a href="privacy.php">Läs mer</a>.</p>
         </div>
         <button class="button button-primary" type="button" data-cookie-accept>Godkänn kakor</button>
     </div>
@@ -191,7 +234,7 @@ function prefix_sql_tables(string $sql): string
         return $sql;
     }
 
-    static $tables = ['schools', 'categories', 'users', 'projects', 'upload_versions', 'audit_log', 'email_notifications'];
+    static $tables = ['schools', 'categories', 'users', 'projects', 'upload_versions', 'audit_log', 'email_notifications', 'login_attempts', 'schema_migrations', 'project_feedback', 'password_resets'];
     $pattern = '/(?<![A-Za-z0-9_`])(' . implode('|', $tables) . ')(?![A-Za-z0-9_`])/';
 
     return preg_replace_callback(
@@ -370,6 +413,7 @@ function send_email_notification(mysqli $conn, string $recipientEmail, string $s
         } catch (Throwable $exception) {
             $status = 'failed';
             $error = mb_substr($exception->getMessage(), 0, 255);
+            log_app_error('E-postutskick misslyckades.', $exception);
         }
     }
 
@@ -379,10 +423,104 @@ function send_email_notification(mysqli $conn, string $recipientEmail, string $s
             'INSERT INTO email_notifications (recipient_email, subject, body, status, error_message)
              VALUES (?, ?, ?, ?, ?)',
             'sssss',
-            [$recipientEmail ?: '(saknas)', $subject, $body, $status, $error]
+            [$recipientEmail ?: '(saknas)', $subject, '[brödtext lagras inte av integritetsskäl]', $status, $error]
         );
     } catch (Throwable $exception) {
+        log_app_error('Kunde inte skriva e-postnotislogg.', $exception);
     }
+}
+
+function log_app_error(string $message, ?Throwable $exception = null): void
+{
+    $context = [
+        'path' => $_SERVER['SCRIPT_NAME'] ?? '',
+        'request_id' => $_SERVER['HTTP_X_REQUEST_ID'] ?? '',
+    ];
+
+    if ($exception) {
+        $context['exception'] = get_class($exception);
+        $context['error'] = $exception->getMessage();
+    }
+
+    error_log('[SAGA] ' . $message . ' ' . json_encode($context, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+}
+
+function upload_path_is_inside_webroot(): bool
+{
+    $base = realpath(BASE_PATH);
+    $uploads = realpath(UPLOAD_DIR);
+
+    return $base !== false
+        && $uploads !== false
+        && (str_starts_with($uploads, $base . DIRECTORY_SEPARATOR) || $uploads === $base);
+}
+
+function fetch_environment_checks(mysqli $conn): array
+{
+    $checks = [];
+    $add = static function (string $label, string $status, string $detail) use (&$checks): void {
+        $checks[] = [
+            'label' => $label,
+            'status' => $status,
+            'detail' => $detail,
+        ];
+    };
+
+    try {
+        $conn->query('SELECT 1');
+        $add('Databasanslutning', 'ok', 'Databasen svarar.');
+    } catch (Throwable $exception) {
+        $add('Databasanslutning', 'critical', 'Databasen svarar inte.');
+        log_app_error('Hälsokontroll kunde inte nå databasen.', $exception);
+    }
+
+    $add(
+        'PHP mysqli',
+        extension_loaded('mysqli') ? 'ok' : 'critical',
+        extension_loaded('mysqli') ? 'mysqli är aktiverat.' : 'mysqli saknas och måste aktiveras.'
+    );
+
+    $add(
+        'Uppladdningsmapp',
+        is_dir(UPLOAD_DIR) && is_writable(UPLOAD_DIR) ? 'ok' : 'critical',
+        is_dir(UPLOAD_DIR) && is_writable(UPLOAD_DIR)
+            ? 'Mappen finns och är skrivbar.'
+            : 'Mappen saknas eller är inte skrivbar.'
+    );
+
+    $uploadHtaccess = UPLOAD_DIR . DIRECTORY_SEPARATOR . '.htaccess';
+    $add(
+        'Direktåtkomst till uppladdningar',
+        upload_path_is_inside_webroot() && !is_file($uploadHtaccess) ? 'warning' : 'ok',
+        upload_path_is_inside_webroot()
+            ? (is_file($uploadHtaccess)
+                ? 'uploads/ ligger i webbroten men Apache-regel finns. Kontrollera motsvarande regel på andra webbservrar.'
+                : 'uploads/ ligger i webbroten och saknar Apache-regel.')
+            : 'Uppladdningar ligger utanför webbroten.'
+    );
+
+    $add(
+        'Installeringsfil',
+        is_file(INSTALL_LOCK_FILE) ? 'ok' : 'critical',
+        is_file(INSTALL_LOCK_FILE) ? 'Installationen är låst.' : 'Installationen är inte låst.'
+    );
+
+    $add(
+        'config/ skrivbarhet',
+        is_writable(CONFIG_DIR) ? 'warning' : 'ok',
+        is_writable(CONFIG_DIR)
+            ? 'config/ är skrivbar. Efter installation bör den låsas för webbservern.'
+            : 'config/ är inte skrivbar.'
+    );
+
+    $isHttps = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+    $add(
+        'HTTPS',
+        $isHttps ? 'ok' : 'warning',
+        $isHttps ? 'HTTPS används.' : 'HTTPS verkar inte vara aktivt för denna request.'
+    );
+
+    return $checks;
 }
 
 function notify_school_admins(mysqli $conn, int $schoolId, string $subject, string $body): void
@@ -408,18 +546,195 @@ function notify_user(mysqli $conn, int $userId, string $subject, string $body): 
     }
 }
 
-function fetch_admin_users(mysqli $conn): array
+function fetch_admin_users(mysqli $conn, array $filters = [], int $page = 1, int $perPage = 25): array
 {
+    $where = [];
+    $types = '';
+    $params = [];
+
+    $query = trim((string) ($filters['q'] ?? ''));
+    if ($query !== '') {
+        $like = '%' . $query . '%';
+        $where[] = '(u.username LIKE ? OR u.full_name LIKE ? OR u.email LIKE ?)';
+        $types .= 'sss';
+        array_push($params, $like, $like, $like);
+    }
+
+    $role = (string) ($filters['role'] ?? '');
+    if (in_array($role, ['student', 'teacher', 'school_admin', 'super_admin'], true)) {
+        $where[] = 'u.role = ?';
+        $types .= 's';
+        $params[] = $role;
+    }
+
+    $status = (string) ($filters['status'] ?? '');
+    if (in_array($status, ['pending', 'approved', 'rejected'], true)) {
+        $where[] = 'u.approval_status = ?';
+        $types .= 's';
+        $params[] = $status;
+    }
+
+    $schoolId = (int) ($filters['school_id'] ?? 0);
+    if ($schoolId > 0) {
+        $where[] = 'u.school_id = ?';
+        $types .= 'i';
+        $params[] = $schoolId;
+    }
+
+    $page = max(1, $page);
+    $perPage = min(100, max(1, $perPage));
+    $offset = ($page - 1) * $perPage;
+    $whereSql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+
     return fetch_all_prepared(
         $conn,
         'SELECT u.id, u.username, u.email, u.full_name, u.role, u.approval_status, u.created_at, s.school_name, s.id AS school_id
          FROM users u
          INNER JOIN schools s ON s.id = u.school_id
-         ORDER BY u.created_at DESC, u.id DESC'
+         ' . $whereSql . '
+         ORDER BY u.created_at DESC, u.id DESC
+         LIMIT ? OFFSET ?',
+        $types . 'ii',
+        array_merge($params, [$perPage, $offset])
     );
 }
 
+function count_admin_users(mysqli $conn, array $filters = []): int
+{
+    $where = [];
+    $types = '';
+    $params = [];
+
+    $query = trim((string) ($filters['q'] ?? ''));
+    if ($query !== '') {
+        $like = '%' . $query . '%';
+        $where[] = '(u.username LIKE ? OR u.full_name LIKE ? OR u.email LIKE ?)';
+        $types .= 'sss';
+        array_push($params, $like, $like, $like);
+    }
+
+    $role = (string) ($filters['role'] ?? '');
+    if (in_array($role, ['student', 'teacher', 'school_admin', 'super_admin'], true)) {
+        $where[] = 'u.role = ?';
+        $types .= 's';
+        $params[] = $role;
+    }
+
+    $status = (string) ($filters['status'] ?? '');
+    if (in_array($status, ['pending', 'approved', 'rejected'], true)) {
+        $where[] = 'u.approval_status = ?';
+        $types .= 's';
+        $params[] = $status;
+    }
+
+    $schoolId = (int) ($filters['school_id'] ?? 0);
+    if ($schoolId > 0) {
+        $where[] = 'u.school_id = ?';
+        $types .= 'i';
+        $params[] = $schoolId;
+    }
+
+    $whereSql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+    $row = fetch_one_prepared(
+        $conn,
+        'SELECT COUNT(*) AS total
+         FROM users u
+         INNER JOIN schools s ON s.id = u.school_id
+         ' . $whereSql,
+        $types,
+        $params
+    );
+
+    return (int) ($row['total'] ?? 0);
+}
+
 function fetch_recent_email_notifications(mysqli $conn, int $limit = 20): array
+{
+    return fetch_all_prepared(
+        $conn,
+        'SELECT recipient_email, subject, status, error_message, created_at
+         FROM email_notifications
+         ORDER BY created_at DESC, id DESC
+         LIMIT ?',
+        'i',
+        [$limit]
+    );
+}
+
+function fetch_audit_log_entries(mysqli $conn, array $filters = [], int $page = 1, int $perPage = 25): array
+{
+    [$whereSql, $types, $params] = audit_log_filter_sql($filters);
+    $page = max(1, $page);
+    $perPage = min(100, max(1, $perPage));
+
+    return fetch_all_prepared(
+        $conn,
+        "SELECT a.id, a.user_id, a.action, a.entity_type, a.entity_id, a.ip_address, a.created_at,
+                u.username, u.full_name
+         FROM audit_log a
+         LEFT JOIN users u ON u.id = a.user_id
+         $whereSql
+         ORDER BY a.created_at DESC, a.id DESC
+         LIMIT ? OFFSET ?",
+        $types . 'ii',
+        array_merge($params, [$perPage, ($page - 1) * $perPage])
+    );
+}
+
+function count_audit_log_entries(mysqli $conn, array $filters = []): int
+{
+    [$whereSql, $types, $params] = audit_log_filter_sql($filters);
+    $row = fetch_one_prepared($conn, "SELECT COUNT(*) AS total FROM audit_log a LEFT JOIN users u ON u.id = a.user_id $whereSql", $types, $params);
+
+    return (int) ($row['total'] ?? 0);
+}
+
+function audit_log_filter_sql(array $filters): array
+{
+    $where = [];
+    $types = '';
+    $params = [];
+
+    $action = trim((string) ($filters['action'] ?? ''));
+    if ($action !== '') {
+        $where[] = 'a.action LIKE ?';
+        $types .= 's';
+        $params[] = '%' . $action . '%';
+    }
+
+    $entityType = trim((string) ($filters['entity_type'] ?? ''));
+    if ($entityType !== '') {
+        $where[] = 'a.entity_type = ?';
+        $types .= 's';
+        $params[] = $entityType;
+    }
+
+    $userQuery = trim((string) ($filters['user'] ?? ''));
+    if ($userQuery !== '') {
+        $where[] = '(u.username LIKE ? OR u.full_name LIKE ?)';
+        $types .= 'ss';
+        $like = '%' . $userQuery . '%';
+        array_push($params, $like, $like);
+    }
+
+    $dateFrom = trim((string) ($filters['date_from'] ?? ''));
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom) === 1) {
+        $where[] = 'a.created_at >= ?';
+        $types .= 's';
+        $params[] = $dateFrom . ' 00:00:00';
+    }
+
+    $dateTo = trim((string) ($filters['date_to'] ?? ''));
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateTo) === 1) {
+        $where[] = 'a.created_at <= ?';
+        $types .= 's';
+        $params[] = $dateTo . ' 23:59:59';
+    }
+
+    return [$where ? 'WHERE ' . implode(' AND ', $where) : '', $types, $params];
+}
+
+function fetch_email_notifications(mysqli $conn, int $limit = 500): array
 {
     return fetch_all_prepared(
         $conn,
@@ -577,6 +892,58 @@ function fetch_project_category(mysqli $conn, int $categoryId): ?array
     );
 }
 
+function fetch_categories_with_counts(mysqli $conn): array
+{
+    return fetch_all_prepared(
+        $conn,
+        'SELECT c.id, c.category_name, c.created_at, COUNT(p.id) AS project_count
+         FROM categories c
+         LEFT JOIN projects p ON p.category_id = c.id
+         GROUP BY c.id, c.category_name, c.created_at
+         ORDER BY c.category_name'
+    );
+}
+
+function rename_project_category(mysqli $conn, int $categoryId, string $categoryName): array
+{
+    $categoryName = normalize_category_name($categoryName);
+    if ($categoryId <= 0 || $categoryName === '' || mb_strlen($categoryName, 'UTF-8') > 120) {
+        return ['ok' => false, 'error' => 'Kategorinamnet måste vara 1-120 tecken.'];
+    }
+
+    try {
+        execute_prepared($conn, 'UPDATE categories SET category_name = ? WHERE id = ?', 'si', [$categoryName, $categoryId]);
+        return ['ok' => true];
+    } catch (mysqli_sql_exception $exception) {
+        return ['ok' => false, 'error' => 'Kunde inte byta namn. Kontrollera att kategorin inte redan finns.'];
+    }
+}
+
+function merge_project_categories(mysqli $conn, int $sourceCategoryId, int $targetCategoryId): array
+{
+    if ($sourceCategoryId <= 0 || $targetCategoryId <= 0 || $sourceCategoryId === $targetCategoryId) {
+        return ['ok' => false, 'error' => 'Välj två olika kategorier.'];
+    }
+
+    $source = fetch_project_category($conn, $sourceCategoryId);
+    $target = fetch_project_category($conn, $targetCategoryId);
+    if (!$source || !$target) {
+        return ['ok' => false, 'error' => 'Kategorin kunde inte hittas.'];
+    }
+
+    try {
+        $conn->begin_transaction();
+        execute_prepared($conn, 'UPDATE projects SET category_id = ? WHERE category_id = ?', 'ii', [$targetCategoryId, $sourceCategoryId]);
+        execute_prepared($conn, 'DELETE FROM categories WHERE id = ?', 'i', [$sourceCategoryId]);
+        $conn->commit();
+        return ['ok' => true];
+    } catch (Throwable $exception) {
+        $conn->rollback();
+        log_app_error('Kunde inte slå ihop kategorier.', $exception);
+        return ['ok' => false, 'error' => 'Kategorierna kunde inte slås ihop.'];
+    }
+}
+
 function role_label(string $role): string
 {
     return match ($role) {
@@ -600,7 +967,7 @@ function approval_status_label(string $status): string
 
 function log_event(mysqli $conn, ?int $userId, string $action, string $entityType, ?int $entityId = null): void
 {
-    $ipAddress = $_SERVER['REMOTE_ADDR'] ?? null;
+    $ipAddress = anonymize_ip_address($_SERVER['REMOTE_ADDR'] ?? null);
 
     execute_prepared(
         $conn,
@@ -608,6 +975,28 @@ function log_event(mysqli $conn, ?int $userId, string $action, string $entityTyp
         'issis',
         [$userId, $action, $entityType, $entityId, $ipAddress]
     );
+}
+
+function anonymize_ip_address(?string $ipAddress): ?string
+{
+    $ipAddress = trim((string) $ipAddress);
+    if ($ipAddress === '') {
+        return null;
+    }
+
+    if (filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+        $parts = explode('.', $ipAddress);
+        return $parts[0] . '.' . $parts[1] . '.' . $parts[2] . '.0';
+    }
+
+    if (filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+        $packed = inet_pton($ipAddress);
+        if ($packed !== false) {
+            return substr(bin2hex($packed), 0, 12) . '::/48';
+        }
+    }
+
+    return null;
 }
 
 function dashboard_url_for_role(string $role): string

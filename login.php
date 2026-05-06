@@ -54,9 +54,8 @@ require_once __DIR__ . '/includes/header.php';
         <p class="muted small-text">
             Saknar du konto? <a href="register.php">Registrera dig här</a>.
         </p>
-
         <p class="muted small-text">
-            Testkonton: admin/admin123, skoladmin/skoladmin123, elev/elev123, larare/larare123.
+            <a href="forgot_password.php">Glömt lösenord?</a>
         </p>
     </form>
 </section>

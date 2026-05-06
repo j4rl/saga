@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+define('SAGA_ALLOW_SELF_FRAME', true);
 require_once __DIR__ . '/includes/bootstrap.php';
 
 $versionId = (int) ($_GET['version'] ?? 0);

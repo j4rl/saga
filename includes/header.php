@@ -37,6 +37,7 @@ $themeCss = $schoolProfile ? school_theme_css_vars($schoolProfile) : '';
     <script src="assets/js/app.js" defer></script>
 </head>
 <body>
+<a class="skip-link" href="#main-content">Hoppa till innehåll</a>
 <header class="site-header">
     <a class="brand" href="index.php" aria-label="Startsida">
         <span class="brand-mark">S</span>
@@ -75,11 +76,14 @@ $themeCss = $schoolProfile ? school_theme_css_vars($schoolProfile) : '';
                 </svg>
                 <span><?= h($userFirstName) ?></span>
             </a>
-            <a class="nav-icon-link nav-logout" href="logout.php" aria-label="Logga ut" title="Logga ut">
-                <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
-                    <path d="M5 4h7v2H7v12h5v2H5V4Zm10.6 4.4 4.1 4.1-4.1 4.1-1.4-1.4 1.7-1.7H10v-2h5.9l-1.7-1.7 1.4-1.4Z"/>
-                </svg>
-            </a>
+            <form class="nav-logout-form" method="post" action="logout.php">
+                <?= csrf_field() ?>
+                <button class="nav-icon-link nav-logout" type="submit" aria-label="Logga ut" title="Logga ut">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+                        <path d="M5 4h7v2H7v12h5v2H5V4Zm10.6 4.4 4.1 4.1-4.1 4.1-1.4-1.4 1.7-1.7H10v-2h5.9l-1.7-1.7 1.4-1.4Z"/>
+                    </svg>
+                </button>
+            </form>
         <?php else: ?>
             <a class="button button-primary nav-login" href="login.php">
                 <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
@@ -91,7 +95,7 @@ $themeCss = $schoolProfile ? school_theme_css_vars($schoolProfile) : '';
     </nav>
 </header>
 
-<main class="page-shell">
+<main id="main-content" class="page-shell" tabindex="-1">
     <?php foreach (get_flash_messages() as $message): ?>
         <div class="notice notice-<?= h($message['type']) ?>" role="status">
             <?= h($message['message']) ?>

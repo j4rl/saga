@@ -27,7 +27,25 @@ if (!$project) {
 }
 
 $pageTitle = $project['title'];
+$feedbackError = null;
+
+if (is_post()) {
+    verify_csrf();
+    if (!$viewer) {
+        set_flash('error', 'Du måste vara inloggad för att kommentera.');
+        redirect('login.php');
+    }
+
+    $result = add_project_feedback($conn, $project, $viewer, (string) ($_POST['comment_text'] ?? ''));
+    if ($result['ok']) {
+        set_flash('success', 'Kommentaren har sparats.');
+        redirect('project_view.php?id=' . (int) $project['id'] . '#feedback');
+    }
+    $feedbackError = $result['error'] ?? 'Kommentaren kunde inte sparas.';
+}
+
 $versions = fetch_project_versions($conn, (int) $project['id']);
+$feedback = fetch_project_feedback($conn, (int) $project['id']);
 require_once __DIR__ . '/includes/header.php';
 ?>
 
@@ -107,6 +125,48 @@ require_once __DIR__ . '/includes/header.php';
     <section class="content-block">
         <h2>Sammanfattning</h2>
         <p><?= nl2br(h($project['summary_text'])) ?></p>
+    </section>
+
+    <?php if ($project['pdf_filename']): ?>
+        <section class="content-block">
+            <h2>PDF-förhandsvisning</h2>
+            <div class="pdf-preview">
+                <iframe src="download.php?id=<?= (int) $project['id'] ?>" title="Förhandsvisning av <?= h($project['title']) ?>"></iframe>
+            </div>
+        </section>
+    <?php endif; ?>
+
+    <section id="feedback" class="content-block">
+        <h2>Återkoppling</h2>
+        <?php if (!$feedback): ?>
+            <p class="empty-state">Ingen återkoppling har skrivits ännu.</p>
+        <?php else: ?>
+            <div class="feedback-list">
+                <?php foreach ($feedback as $comment): ?>
+                    <article class="feedback-item">
+                        <header>
+                            <strong><?= h($comment['full_name']) ?></strong>
+                            <span><?= h(role_label($comment['role'])) ?> · <?= h(format_date($comment['created_at'])) ?></span>
+                        </header>
+                        <p><?= nl2br(h($comment['comment_text'])) ?></p>
+                    </article>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($viewer && can_comment_project($project, $viewer)): ?>
+            <form class="feedback-form" method="post" action="project_view.php?id=<?= (int) $project['id'] ?>#feedback">
+                <?= csrf_field() ?>
+                <?php if ($feedbackError): ?>
+                    <div class="notice notice-error"><?= h($feedbackError) ?></div>
+                <?php endif; ?>
+                <div class="field">
+                    <label for="comment_text">Ny kommentar</label>
+                    <textarea id="comment_text" name="comment_text" rows="5" maxlength="2000" required></textarea>
+                </div>
+                <button class="button button-primary" type="submit">Spara kommentar</button>
+            </form>
+        <?php endif; ?>
     </section>
 
     <section class="content-block">

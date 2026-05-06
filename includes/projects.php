@@ -51,17 +51,15 @@ function can_view_project(array $project, ?array $viewer): bool
         return true;
     }
 
-    if (
-        $viewer['role'] === 'teacher'
-        && (
-            (int) ($project['supervisor_user_id'] ?? 0) === (int) $viewer['id']
-            || trim((string) $project['supervisor']) === trim((string) $viewer['full_name'])
-        )
-    ) {
-        return true;
+    if ($viewer['role'] === 'teacher') {
+        return teacher_is_project_supervisor($project, $viewer)
+            || (
+                (int) $project['school_id'] === (int) $viewer['school_id']
+                && (int) $project['is_submitted'] === 1
+            );
     }
 
-    if (in_array($viewer['role'], ['teacher', 'school_admin'], true)) {
+    if ($viewer['role'] === 'school_admin') {
         return (int) $project['school_id'] === (int) $viewer['school_id'];
     }
 
@@ -70,6 +68,21 @@ function can_view_project(array $project, ?array $viewer): bool
     }
 
     return false;
+}
+
+function teacher_is_project_supervisor(array $project, array $teacher): bool
+{
+    if (($teacher['role'] ?? '') !== 'teacher') {
+        return false;
+    }
+
+    if ((int) ($project['supervisor_user_id'] ?? 0) === (int) $teacher['id']) {
+        return true;
+    }
+
+    return (int) $project['school_id'] === (int) $teacher['school_id']
+        && empty($project['supervisor_user_id'])
+        && trim((string) $project['supervisor']) === trim((string) $teacher['full_name']);
 }
 
 function can_edit_project(array $project, array $viewer): bool
@@ -96,7 +109,7 @@ function can_edit_project_content(array $project, array $viewer): bool
 function can_unlock_project_submission(array $project, array $viewer): bool
 {
     return $viewer['role'] === 'teacher'
-        && (int) $project['school_id'] === (int) $viewer['school_id']
+        && teacher_is_project_supervisor($project, $viewer)
         && (int) $project['is_submitted'] === 1;
 }
 
@@ -139,10 +152,21 @@ function add_visibility_sql(?array $viewer, array &$where, string &$types, array
         return;
     }
 
-    if (in_array($viewer['role'], ['teacher', 'school_admin'], true) && $teacherLimitedSearch) {
+    if ($viewer['role'] === 'school_admin' && $teacherLimitedSearch) {
         $where[] = 'p.school_id = ?';
         $types .= 'i';
         $params[] = (int) $viewer['school_id'];
+        return;
+    }
+
+    if ($viewer['role'] === 'teacher' && $teacherLimitedSearch) {
+        $where[] = '(
+            (p.school_id = ? AND p.is_submitted = 1)
+            OR p.supervisor_user_id = ?
+            OR (p.school_id = ? AND p.supervisor_user_id IS NULL AND TRIM(p.supervisor) = ?)
+        )';
+        $types .= 'iiis';
+        array_push($params, (int) $viewer['school_id'], (int) $viewer['id'], (int) $viewer['school_id'], trim((string) $viewer['full_name']));
         return;
     }
 
@@ -350,6 +374,28 @@ function search_projects(mysqli $conn, array $filters, ?array $viewer, int $page
 
     if ($query !== '') {
         $fulltextQuery = implode(' ', array_slice(search_query_tokens($query), 0, 10));
+        $candidateWhereSql = $whereSql;
+        $candidateTypes = $types;
+        $candidateParams = $params;
+        $candidateLikeParts = [];
+        $candidateLikeTypes = '';
+        $candidateLikeParams = [];
+        foreach (array_slice(smart_search_terms($query), 0, 12) as $term) {
+            $candidateLikeParts[] = '(p.title LIKE ? OR p.subtitle LIKE ? OR p.supervisor LIKE ? OR p.abstract_text LIKE ? OR p.summary_text LIKE ? OR c.category_name LIKE ? OR u.full_name LIKE ? OR su.full_name LIKE ?)';
+            $candidateLikeTypes .= 'ssssssss';
+            $like = '%' . $term . '%';
+            array_push($candidateLikeParams, $like, $like, $like, $like, $like, $like, $like, $like);
+        }
+
+        if ($candidateLikeParts) {
+            $candidateClause = '(MATCH(p.title, p.subtitle, p.supervisor, p.abstract_text, p.summary_text)
+                    AGAINST (? IN NATURAL LANGUAGE MODE) > 0 OR ' . implode(' OR ', $candidateLikeParts) . ')';
+            $candidateTypes .= 's' . $candidateLikeTypes;
+            $candidateParams[] = $fulltextQuery ?: $query;
+            $candidateParams = array_merge($candidateParams, $candidateLikeParams);
+            $candidateWhereSql .= $candidateWhereSql ? ' AND ' . $candidateClause : 'WHERE ' . $candidateClause;
+        }
+
         $candidateRows = fetch_all_prepared(
             $conn,
             "SELECT p.*, s.school_name, u.full_name AS student_name,
@@ -361,9 +407,11 @@ function search_projects(mysqli $conn, array $filters, ?array $viewer, int $page
              INNER JOIN users u ON u.id = p.user_id
              INNER JOIN categories c ON c.id = p.category_id
              LEFT JOIN users su ON su.id = p.supervisor_user_id
-             $whereSql",
-            's' . $types,
-            array_merge([$fulltextQuery ?: $query], $params)
+             $candidateWhereSql
+             ORDER BY _fulltext_score DESC, p.updated_at DESC
+             LIMIT 1000",
+            's' . $candidateTypes,
+            array_merge([$fulltextQuery ?: $query], $candidateParams)
         );
 
         $terms = smart_search_terms($query);
@@ -483,9 +531,9 @@ function teacher_dashboard_projects(mysqli $conn, array $teacher, string $view, 
         $types .= 'is';
         array_push($params, $teacherId, $teacherName);
     } elseif ($view === 'supervised') {
-        $where[] = '(p.supervisor_user_id = ? OR (p.supervisor_user_id IS NULL AND TRIM(p.supervisor) = ?))';
-        $types .= 'is';
-        array_push($params, $teacherId, $teacherName);
+        $where[] = '(p.supervisor_user_id = ? OR (p.school_id = ? AND p.supervisor_user_id IS NULL AND TRIM(p.supervisor) = ?))';
+        $types .= 'iis';
+        array_push($params, $teacherId, (int) $teacher['school_id'], $teacherName);
     } else {
         $where[] = 'p.school_id = ?';
         $types .= 'i';
@@ -565,11 +613,11 @@ function teacher_dashboard_counts(mysqli $conn, array $teacher): array
         $conn,
         'SELECT
             SUM(p.school_id = ? AND (p.supervisor_user_id = ? OR (p.supervisor_user_id IS NULL AND TRIM(p.supervisor) = ?))) AS own_total,
-            SUM(p.supervisor_user_id = ? OR (p.supervisor_user_id IS NULL AND TRIM(p.supervisor) = ?)) AS supervised_total,
+            SUM(p.supervisor_user_id = ? OR (p.school_id = ? AND p.supervisor_user_id IS NULL AND TRIM(p.supervisor) = ?)) AS supervised_total,
             SUM(p.school_id = ? AND p.is_submitted = 1) AS school_submitted_total
          FROM projects p',
-        'iisisi',
-        [(int) $teacher['school_id'], $teacherId, $teacherName, $teacherId, $teacherName, (int) $teacher['school_id']]
+        'iisiisi',
+        [(int) $teacher['school_id'], $teacherId, $teacherName, $teacherId, (int) $teacher['school_id'], $teacherName, (int) $teacher['school_id']]
     );
 
     return [
@@ -668,6 +716,93 @@ function store_uploaded_pdf(array $validatedFile): array
         'stored_name' => $validatedFile['stored_name'],
         'original_name' => $validatedFile['original_name'],
     ];
+}
+
+function can_comment_project(array $project, array $viewer): bool
+{
+    if (!can_view_project($project, $viewer)) {
+        return false;
+    }
+
+    if (in_array($viewer['role'], ['super_admin', 'school_admin'], true)) {
+        return $viewer['role'] === 'super_admin' || (int) $project['school_id'] === (int) $viewer['school_id'];
+    }
+
+    if ($viewer['role'] === 'teacher') {
+        return teacher_is_project_supervisor($project, $viewer);
+    }
+
+    return $viewer['role'] === 'student' && (int) $project['user_id'] === (int) $viewer['id'];
+}
+
+function fetch_project_feedback(mysqli $conn, int $projectId): array
+{
+    ensure_project_feedback_table($conn);
+
+    return fetch_all_prepared(
+        $conn,
+        'SELECT pf.id, pf.comment_text, pf.created_at, u.full_name, u.role
+         FROM project_feedback pf
+         INNER JOIN users u ON u.id = pf.user_id
+         WHERE pf.project_id = ?
+         ORDER BY pf.created_at ASC, pf.id ASC',
+        'i',
+        [$projectId]
+    );
+}
+
+function add_project_feedback(mysqli $conn, array $project, array $viewer, string $commentText): array
+{
+    ensure_project_feedback_table($conn);
+
+    if (!can_comment_project($project, $viewer)) {
+        return ['ok' => false, 'error' => 'Du har inte behörighet att kommentera arbetet.'];
+    }
+
+    $commentText = trim($commentText);
+    if ($commentText === '' || mb_strlen($commentText, 'UTF-8') > 2000) {
+        return ['ok' => false, 'error' => 'Kommentaren måste vara 1-2000 tecken.'];
+    }
+
+    execute_prepared(
+        $conn,
+        'INSERT INTO project_feedback (project_id, user_id, comment_text) VALUES (?, ?, ?)',
+        'iis',
+        [(int) $project['id'], (int) $viewer['id'], $commentText]
+    );
+    log_event($conn, (int) $viewer['id'], 'project_feedback_create', 'project', (int) $project['id']);
+
+    return ['ok' => true];
+}
+
+function ensure_project_feedback_table(mysqli $conn): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+
+    execute_prepared(
+        $conn,
+        'CREATE TABLE IF NOT EXISTS project_feedback (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            project_id INT UNSIGNED NOT NULL,
+            user_id INT UNSIGNED NOT NULL,
+            comment_text TEXT NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_project_feedback_project
+                FOREIGN KEY (project_id) REFERENCES projects(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_project_feedback_user
+                FOREIGN KEY (user_id) REFERENCES users(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            INDEX idx_project_feedback_project (project_id, created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_swedish_ci'
+    );
+
+    $done = true;
 }
 
 

@@ -25,6 +25,10 @@ function installer_create_schema(mysqli $conn, string $prefix, string $schoolNam
     $uploadVersions = installer_table($prefix, 'upload_versions');
     $auditLog = installer_table($prefix, 'audit_log');
     $emailNotifications = installer_table($prefix, 'email_notifications');
+    $loginAttempts = installer_table($prefix, 'login_attempts');
+    $schemaMigrations = installer_table($prefix, 'schema_migrations');
+    $projectFeedback = installer_table($prefix, 'project_feedback');
+    $passwordResets = installer_table($prefix, 'password_resets');
 
     $statements = [
         "CREATE TABLE IF NOT EXISTS $schools (
@@ -52,6 +56,7 @@ function installer_create_schema(mysqli $conn, string $prefix, string $schoolNam
             username VARCHAR(80) NOT NULL UNIQUE,
             email VARCHAR(190) NULL,
             password_hash VARCHAR(255) NOT NULL,
+            must_change_password TINYINT(1) NOT NULL DEFAULT 0,
             full_name VARCHAR(160) NOT NULL,
             role ENUM('student', 'teacher', 'school_admin', 'super_admin') NOT NULL DEFAULT 'student',
             school_id INT UNSIGNED NOT NULL,
@@ -157,6 +162,51 @@ function installer_create_schema(mysqli $conn, string $prefix, string $schoolNam
             INDEX idx_email_notifications_created (created_at),
             INDEX idx_email_notifications_recipient (recipient_email)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_swedish_ci",
+        "CREATE TABLE IF NOT EXISTS $loginAttempts (
+            attempt_key CHAR(64) NOT NULL PRIMARY KEY,
+            scope VARCHAR(20) NOT NULL,
+            failed_count INT UNSIGNED NOT NULL DEFAULT 0,
+            locked_until DATETIME NULL,
+            last_failed_at DATETIME NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_login_attempts_locked_until (locked_until),
+            INDEX idx_login_attempts_scope_updated (scope, updated_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_swedish_ci",
+        "CREATE TABLE IF NOT EXISTS $schemaMigrations (
+            version VARCHAR(40) NOT NULL PRIMARY KEY,
+            applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_swedish_ci",
+        "CREATE TABLE IF NOT EXISTS $projectFeedback (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            project_id INT UNSIGNED NOT NULL,
+            user_id INT UNSIGNED NOT NULL,
+            comment_text TEXT NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_{$prefix}project_feedback_project
+                FOREIGN KEY (project_id) REFERENCES $projects(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            CONSTRAINT fk_{$prefix}project_feedback_user
+                FOREIGN KEY (user_id) REFERENCES $users(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            INDEX idx_project_feedback_project (project_id, created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_swedish_ci",
+        "CREATE TABLE IF NOT EXISTS $passwordResets (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            user_id INT UNSIGNED NOT NULL,
+            token_hash CHAR(64) NOT NULL UNIQUE,
+            expires_at DATETIME NOT NULL,
+            used_at DATETIME NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_{$prefix}password_resets_user
+                FOREIGN KEY (user_id) REFERENCES $users(id)
+                ON DELETE CASCADE
+                ON UPDATE CASCADE,
+            INDEX idx_password_resets_user (user_id),
+            INDEX idx_password_resets_expires (expires_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_swedish_ci",
     ];
 
     foreach ($statements as $sql) {
@@ -219,6 +269,8 @@ function installer_config_contents(array $config): string
 
 function render_installer(): never
 {
+    send_security_headers();
+
     if (app_is_installed()) {
         redirect('index.php');
     }

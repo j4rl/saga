@@ -61,6 +61,9 @@ require_once __DIR__ . '/includes/header.php';
     <p class="eyebrow">Konto</p>
     <h1>Profil</h1>
     <p class="muted">Här ser du vilken roll och skola kontot hör till.</p>
+    <?php if ((int) ($user['must_change_password'] ?? 0) === 1): ?>
+        <div class="notice notice-error">Kontot använder ett tillfälligt lösenord. Byt lösenord innan du fortsätter.</div>
+    <?php endif; ?>
 </section>
 
 <section class="profile-layout">

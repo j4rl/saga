@@ -40,7 +40,7 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
     $categoryName = normalize_category_name((string) ($_POST['category_name'] ?? ''));
     $abstractText = trim((string) ($_POST['abstract_text'] ?? ''));
     $summaryText = trim((string) ($_POST['summary_text'] ?? ''));
-    $isPublic = isset($_POST['is_public']) ? 1 : 0;
+    $requestedPublic = isset($_POST['is_public']) ? 1 : 0;
     $isSubmitted = isset($_POST['is_submitted']) ? 1 : 0;
 
     $errors = [];
@@ -49,6 +49,9 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
     $projectSchoolId = (int) ($existingProject['school_id'] ?? $user['school_id']);
     $projectOwnerId = (int) ($existingProject['user_id'] ?? $user['id']);
     $studentName = (string) ($existingProject['student_name'] ?? $user['full_name']);
+    $canManagePublication = $user['role'] === 'student' && $projectOwnerId === (int) $user['id'];
+    $isPublic = $canManagePublication ? $requestedPublic : (int) ($existingProject['is_public'] ?? 0);
+    $wasSubmitted = $existingProject && (int) $existingProject['is_submitted'] === 1;
 
     if ($title === '' || mb_strlen($title) > 180) {
         $errors[] = 'Rubrik är obligatorisk och får vara högst 180 tecken.';
@@ -84,6 +87,10 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
         $errors[] = 'Sammanfattning är obligatorisk.';
     }
 
+    if ($isSubmitted === 1 && !$wasSubmitted && empty($_POST['confirm_submission'])) {
+        $errors[] = 'Bekräfta att du vill lämna in arbetet slutgiltigt.';
+    }
+
     $upload = validate_pdf_upload($_FILES['pdf_file'] ?? [], $existingProject === null);
     if (!$upload['ok']) {
         $errors[] = $upload['error'];
@@ -116,7 +123,6 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
         }
         $supervisorName = (string) $teacher['full_name'];
         $categoryId = (int) $category['id'];
-        $wasSubmitted = $existingProject && (int) $existingProject['is_submitted'] === 1;
 
         if ($existingProject) {
             $projectId = (int) $existingProject['id'];

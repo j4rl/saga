@@ -62,6 +62,7 @@ require_once __DIR__ . '/includes/header.php';
 
     <div class="action-row teacher-export-actions">
         <a class="button button-secondary" href="teacher_project_list.php?<?= h(http_build_query(['view' => $view, 'q' => $query, 'sort' => $sort])) ?>" target="_blank">Skriv ut / spara PDF</a>
+        <a class="button button-secondary" href="teacher_project_list.php?<?= h(http_build_query(['view' => $view, 'q' => $query, 'sort' => $sort, 'format' => 'csv'])) ?>">Exportera CSV</a>
     </div>
 </section>
 

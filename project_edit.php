@@ -45,6 +45,9 @@ $projectOwner = $project ? [
     'school_id' => (int) $project['school_id'],
     'school_name' => (string) $project['school_name'],
 ] : $user;
+$canManagePublication = $canEditContent
+    && $user['role'] === 'student'
+    && (int) $projectOwner['id'] === (int) $user['id'];
 $formAction = 'project_edit.php' . ($project ? '?id=' . (int) $project['id'] : '');
 $cancelUrl = $project ? 'project_view.php?id=' . (int) $project['id'] : 'dashboard_student.php';
 
@@ -193,7 +196,7 @@ require_once __DIR__ . '/includes/header.php';
 
         <div class="toggle-row">
             <label class="check-option">
-                <input type="checkbox" name="is_public" value="1" <?= (int) $formData['isPublic'] === 1 ? 'checked' : '' ?> <?= $canEditContent ? '' : 'disabled' ?>>
+                <input type="checkbox" name="is_public" value="1" <?= (int) $formData['isPublic'] === 1 ? 'checked' : '' ?> <?= $canManagePublication ? '' : 'disabled' ?>>
                 <span>Gör arbetet sökbart och synligt för andra</span>
             </label>
 
@@ -202,6 +205,21 @@ require_once __DIR__ . '/includes/header.php';
                 <span><?= $canEditContent ? 'Lämna in slutgiltigt. När detta är sparat kan eleven inte ändra arbetet.' : 'Slutlig inlämning. Avmarkera för att låsa upp elevredigering.' ?></span>
             </label>
         </div>
+
+        <?php if ($canEditContent && (int) $formData['isSubmitted'] !== 1): ?>
+            <div class="submission-checklist">
+                <h2>Kontrollera före slutlig inlämning</h2>
+                <ul class="checklist">
+                    <li>Rubrik, kategori, handledare, abstract och sammanfattning är ifyllda.</li>
+                    <li>PDF-filen är rätt version och innehåller inga uppgifter som inte ska delas.</li>
+                    <li>Synlighet är vald medvetet. Bara eleven kan göra arbetet publikt.</li>
+                </ul>
+                <label class="check-option">
+                    <input type="checkbox" name="confirm_submission" value="1">
+                    <span>Jag förstår att slutlig inlämning låser elevredigering tills handledaren låser upp arbetet.</span>
+                </label>
+            </div>
+        <?php endif; ?>
 
         <div class="action-row">
             <a class="button button-secondary" href="<?= h($cancelUrl) ?>">Avbryt</a>

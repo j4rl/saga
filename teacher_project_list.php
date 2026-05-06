@@ -15,8 +15,37 @@ $viewLabels = [
     'supervised' => 'Alla handledningar',
     'school_submitted' => 'Inlämnade på skolan',
 ];
+$format = (string) ($_GET['format'] ?? 'html');
 
-if (isset($_GET['download'])) {
+if ($format === 'csv') {
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="gymnasiearbeten-lista.csv"');
+
+    $output = fopen('php://output', 'wb');
+    fwrite($output, "\xEF\xBB\xBF");
+    fputcsv($output, ['Elev', 'Rubrik', 'Underrubrik', 'Kategori', 'Handledare', 'Status', 'Inlämnad'], ';');
+
+    foreach ($results['rows'] as $project) {
+        fputcsv(
+            $output,
+            [
+                $project['student_name'],
+                $project['title'],
+                $project['subtitle'],
+                $project['category_name'],
+                $project['supervisor_name'],
+                (int) $project['is_submitted'] === 1 ? 'Inlämnat' : 'Utkast',
+                (int) $project['is_submitted'] === 1 ? format_date($project['submitted_at']) : '',
+            ],
+            ';'
+        );
+    }
+
+    fclose($output);
+    exit;
+}
+
+if ($format === 'html' && isset($_GET['download'])) {
     header('Content-Type: text/html; charset=utf-8');
     header('Content-Disposition: attachment; filename="gymnasiearbeten-lista.html"');
 }

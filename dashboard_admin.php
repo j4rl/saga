@@ -47,8 +47,8 @@ if (is_post()) {
                 $stmt = execute_prepared(
                     $conn,
                     'INSERT INTO users
-                     (username, email, password_hash, full_name, role, school_id, approval_status, reviewed_by, reviewed_at)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())',
+                     (username, email, password_hash, must_change_password, full_name, role, school_id, approval_status, reviewed_by, reviewed_at)
+                     VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, NOW())',
                     'sssssisi',
                     [$adminUsername, $adminEmail, $passwordHash, $adminFullName, 'school_admin', $schoolId, 'approved', (int) $currentUser['id']]
                 );
@@ -118,8 +118,8 @@ if (is_post()) {
                 $stmt = execute_prepared(
                     $conn,
                     'INSERT INTO users
-                     (username, email, password_hash, full_name, role, school_id, approval_status, reviewed_by, reviewed_at)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())',
+                     (username, email, password_hash, must_change_password, full_name, role, school_id, approval_status, reviewed_by, reviewed_at)
+                     VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, NOW())',
                     'sssssisi',
                     [$username, $email, $passwordHash, $fullName, $role, $schoolId, 'approved', (int) $currentUser['id']]
                 );
@@ -181,7 +181,7 @@ if (is_post()) {
                         $conn,
                         'UPDATE users
                          SET email = ?, full_name = ?, role = ?, school_id = ?, approval_status = ?,
-                             password_hash = ?, reviewed_by = ?, reviewed_at = NOW(), updated_at = NOW()
+                             password_hash = ?, must_change_password = 1, reviewed_by = ?, reviewed_at = NOW(), updated_at = NOW()
                          WHERE id = ?',
                         'sssissii',
                         [$email, $fullName, $role, $schoolId, $status, password_hash($newPassword, PASSWORD_DEFAULT), (int) $currentUser['id'], $userId]
@@ -233,10 +233,25 @@ if (is_post()) {
     $schools = fetch_schools($conn);
 }
 
-$users = fetch_admin_users($conn);
+$userFilters = [
+    'q' => trim((string) ($_GET['user_q'] ?? '')),
+    'role' => (string) ($_GET['user_role'] ?? ''),
+    'status' => (string) ($_GET['user_status'] ?? ''),
+    'school_id' => (int) ($_GET['user_school_id'] ?? 0),
+];
+$usersPage = max(1, (int) ($_GET['users_page'] ?? 1));
+$usersPerPage = 25;
+$usersTotal = count_admin_users($conn, $userFilters);
+$usersPages = max(1, (int) ceil($usersTotal / $usersPerPage));
+if ($usersPage > $usersPages) {
+    $usersPage = $usersPages;
+}
+$users = fetch_admin_users($conn, $userFilters, $usersPage, $usersPerPage);
 
 $projectCount = fetch_one_prepared($conn, 'SELECT COUNT(*) AS total FROM projects');
 $recentNotifications = fetch_recent_email_notifications($conn, 10);
+$environmentChecks = fetch_environment_checks($conn);
+$environmentIssueCount = count(array_filter($environmentChecks, static fn (array $check): bool => $check['status'] !== 'ok'));
 $pageTitle = 'Superadminpanel';
 
 require_once __DIR__ . '/includes/header.php';
@@ -246,6 +261,18 @@ require_once __DIR__ . '/includes/header.php';
     <p class="eyebrow">Superadminpanel</p>
     <h1>Hantera skolor och användare</h1>
     <p class="muted">Superadmin kan skapa skolor, skoladministratörer och hantera alla användare.</p>
+    <?php if ($environmentIssueCount > 0): ?>
+        <div class="notice notice-error">
+            Driftkontrollen visar <?= (int) $environmentIssueCount ?> varning(ar) eller fel.
+            <a href="health.php">Visa driftkontroll</a>.
+        </div>
+    <?php else: ?>
+        <p><a class="text-link" href="health.php">Visa driftkontroll</a></p>
+    <?php endif; ?>
+    <div class="action-row">
+        <a class="button button-secondary" href="audit.php">Auditlogg och export</a>
+        <a class="button button-secondary" href="categories.php">Hantera kategorier</a>
+    </div>
 </section>
 
 <?php if ($errors): ?>
@@ -362,8 +389,46 @@ require_once __DIR__ . '/includes/header.php';
 <section class="section">
     <div class="section-heading">
         <h2>Användare</h2>
-        <span><?= (int) count($users) ?> användare · <?= (int) ($projectCount['total'] ?? 0) ?> arbeten</span>
+        <span><?= (int) $usersTotal ?> användare · <?= (int) ($projectCount['total'] ?? 0) ?> arbeten</span>
     </div>
+
+    <form class="search-panel search-panel-compact" method="get" action="dashboard_admin.php">
+        <div class="field field-grow">
+            <label for="user_q">Sök användare</label>
+            <input id="user_q" name="user_q" type="search" value="<?= h($userFilters['q']) ?>" placeholder="Användarnamn, namn eller e-post">
+        </div>
+        <div class="field">
+            <label for="user_role">Roll</label>
+            <select id="user_role" name="user_role">
+                <option value="">Alla roller</option>
+                <?php foreach (['student', 'teacher', 'school_admin', 'super_admin'] as $role): ?>
+                    <option value="<?= h($role) ?>" <?= $userFilters['role'] === $role ? 'selected' : '' ?>><?= h(role_label($role)) ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div class="field">
+            <label for="user_status">Status</label>
+            <select id="user_status" name="user_status">
+                <option value="">Alla statusar</option>
+                <?php foreach (['pending', 'approved', 'rejected'] as $status): ?>
+                    <option value="<?= h($status) ?>" <?= $userFilters['status'] === $status ? 'selected' : '' ?>><?= h(approval_status_label($status)) ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div class="field">
+            <label for="user_school_id">Skola</label>
+            <select id="user_school_id" name="user_school_id">
+                <option value="">Alla skolor</option>
+                <?php foreach ($schools as $school): ?>
+                    <option value="<?= (int) $school['id'] ?>" <?= (int) $userFilters['school_id'] === (int) $school['id'] ? 'selected' : '' ?>>
+                        <?= h($school['school_name']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <button class="button button-primary" type="submit">Filtrera</button>
+        <a class="button button-secondary" href="dashboard_admin.php">Rensa</a>
+    </form>
 
     <div class="table-wrap">
         <table class="data-table">
@@ -426,6 +491,25 @@ require_once __DIR__ . '/includes/header.php';
             </tbody>
         </table>
     </div>
+
+    <?php if ($usersPages > 1): ?>
+        <nav class="pagination" aria-label="Paginering för användare">
+            <?php for ($i = 1; $i <= $usersPages; $i++): ?>
+                <?php
+                $params = [
+                    'user_q' => $userFilters['q'],
+                    'user_role' => $userFilters['role'],
+                    'user_status' => $userFilters['status'],
+                    'user_school_id' => $userFilters['school_id'],
+                    'users_page' => $i,
+                ];
+                ?>
+                <a class="<?= $i === $usersPage ? 'active' : '' ?>" href="dashboard_admin.php?<?= h(http_build_query($params)) ?>">
+                    <?= (int) $i ?>
+                </a>
+            <?php endfor; ?>
+        </nav>
+    <?php endif; ?>
 </section>
 
 <section class="section">
