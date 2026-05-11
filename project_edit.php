@@ -50,9 +50,14 @@ $canManagePublication = $canEditContent
     && (int) $projectOwner['id'] === (int) $user['id'];
 $formAction = 'project_edit.php' . ($project ? '?id=' . (int) $project['id'] : '');
 $cancelUrl = $project ? 'project_view.php?id=' . (int) $project['id'] : 'dashboard_student.php';
+$showDraftFeedback = $project
+    && $user['role'] === 'student'
+    && (int) $project['user_id'] === (int) $user['id']
+    && (int) $project['is_submitted'] !== 1;
 
 $teachers = fetch_school_teachers($conn, (int) $projectOwner['school_id']);
 $categories = fetch_project_categories($conn);
+$feedback = $showDraftFeedback ? fetch_project_feedback($conn, (int) $project['id']) : [];
 $errors = [];
 $formData = [
     'title' => $project['title'] ?? '',
@@ -105,6 +110,31 @@ require_once __DIR__ . '/includes/header.php';
                 <div><?= h($error) ?></div>
             <?php endforeach; ?>
         </div>
+    </section>
+<?php endif; ?>
+
+<?php if ($showDraftFeedback): ?>
+    <section id="feedback" class="section">
+        <div class="section-heading">
+            <h2>Återkoppling</h2>
+            <a class="button button-secondary" href="project_view.php?id=<?= (int) $project['id'] ?>#feedback">Öppna tråd</a>
+        </div>
+
+        <?php if (!$feedback): ?>
+            <p class="empty-state">Ingen återkoppling har skrivits ännu.</p>
+        <?php else: ?>
+            <div class="feedback-list">
+                <?php foreach ($feedback as $comment): ?>
+                    <article class="feedback-item">
+                        <header>
+                            <strong><?= h($comment['full_name']) ?></strong>
+                            <span><?= h(role_label($comment['role'])) ?> · <?= h(format_date($comment['created_at'])) ?></span>
+                        </header>
+                        <p><?= nl2br(h($comment['comment_text'])) ?></p>
+                    </article>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
     </section>
 <?php endif; ?>
 
@@ -213,6 +243,18 @@ require_once __DIR__ . '/includes/header.php';
                 <span><?= $canEditContent ? 'Lämna in slutgiltigt. När detta är sparat kan eleven inte ändra arbetet.' : 'Slutlig inlämning. Avmarkera för att låsa upp elevredigering.' ?></span>
             </label>
         </div>
+
+        <?php if ($canManagePublication): ?>
+            <div class="consent-box" data-publication-consent>
+                <label class="check-option">
+                    <input type="checkbox" name="confirm_publication_consent" value="1" <?= (int) $formData['isPublic'] === 1 ? 'checked' : '' ?>>
+                    <span>
+                        Jag samtycker till att SAGA får visa mitt namn tillsammans med mitt gymnasiearbete och göra arbetet sökbart för andra användare och besökare när jag väljer publicering.
+                    </span>
+                </label>
+                <p class="field-help">Du kan ta tillbaka publiceringen genom att avmarkera publik synlighet. Då tas arbetet bort från den publika sökningen.</p>
+            </div>
+        <?php endif; ?>
 
         <?php if ($canEditContent && (int) $formData['isSubmitted'] !== 1): ?>
             <div class="submission-checklist">

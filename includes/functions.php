@@ -328,6 +328,18 @@ function execute_prepared(mysqli $conn, string $sql, string $types = '', array $
     return $stmt;
 }
 
+function ensure_privacy_consent_columns(mysqli $conn): void
+{
+    try {
+        execute_prepared($conn, 'ALTER TABLE users ADD COLUMN IF NOT EXISTS privacy_consent_at DATETIME NULL AFTER registration_reviewer_id');
+        execute_prepared($conn, 'ALTER TABLE users ADD COLUMN IF NOT EXISTS privacy_consent_version VARCHAR(40) NULL AFTER privacy_consent_at');
+        execute_prepared($conn, 'ALTER TABLE projects ADD COLUMN IF NOT EXISTS publication_consent_at DATETIME NULL AFTER approved_by');
+        execute_prepared($conn, 'ALTER TABLE projects ADD COLUMN IF NOT EXISTS publication_consent_version VARCHAR(40) NULL AFTER publication_consent_at');
+    } catch (Throwable $exception) {
+        log_app_error('Kunde inte säkerställa samtyckeskolumner.', $exception);
+    }
+}
+
 function fetch_schools(mysqli $conn): array
 {
     return fetch_all_prepared($conn, 'SELECT id, school_name FROM schools ORDER BY school_name');
@@ -653,6 +665,16 @@ function normalize_email(?string $email): ?string
     }
 
     return filter_var($email, FILTER_VALIDATE_EMAIL) ? mb_strtolower($email, 'UTF-8') : null;
+}
+
+function privacy_consent_version(): string
+{
+    return '2026-05-11';
+}
+
+function publication_consent_version(): string
+{
+    return '2026-05-11';
 }
 
 function send_email_notification(mysqli $conn, string $recipientEmail, string $subject, string $body): void

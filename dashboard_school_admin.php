@@ -254,36 +254,45 @@ require_once __DIR__ . '/includes/header.php';
     <?php if (!$registrations): ?>
         <p class="empty-state">Det finns inga registreringar för skolan ännu.</p>
     <?php else: ?>
-        <div class="table-wrap">
-            <table class="data-table">
-                <thead>
-                <tr>
-                    <th>Användarnamn</th>
-                    <th>E-post</th>
-                    <th>Namn</th>
-                    <th>Roll</th>
-                    <th>Status</th>
-                    <th>Tilldelad</th>
-                    <th>Registrerad</th>
-                    <th></th>
-                </tr>
-                </thead>
-                <tbody>
-                <?php foreach ($registrations as $registration): ?>
-                    <tr>
-                        <td><?= h($registration['username']) ?></td>
-                        <td><?= h($registration['email'] ?? '') ?></td>
-                        <td><?= h($registration['full_name']) ?></td>
-                        <td><?= h(role_label($registration['role'])) ?></td>
-                        <td>
+        <div class="user-list">
+            <?php foreach ($registrations as $registration): ?>
+                <details class="user-disclosure">
+                    <summary>
+                        <span class="user-summary-main">
+                            <strong><?= h($registration['full_name']) ?></strong>
+                            <span><?= h($registration['username']) ?></span>
+                        </span>
+                        <span class="user-summary-meta">
                             <span class="status-pill status-<?= h($registration['approval_status']) ?>">
                                 <?= h(approval_status_label($registration['approval_status'])) ?>
                             </span>
-                        </td>
-                        <td><?= h($registration['registration_reviewer_name'] ?? '-') ?></td>
-                        <td><?= h(format_date($registration['created_at'])) ?></td>
-                        <td>
-                            <?php if ($registration['approval_status'] === 'pending'): ?>
+                            <span><?= h(role_label($registration['role'])) ?></span>
+                            <span><?= h(format_date($registration['created_at'])) ?></span>
+                        </span>
+                    </summary>
+
+                    <div class="user-detail-form">
+                        <dl class="user-facts">
+                            <div>
+                                <dt>E-post</dt>
+                                <dd><?= h($registration['email'] ?? '-') ?></dd>
+                            </div>
+                            <div>
+                                <dt>Tilldelad granskare</dt>
+                                <dd><?= h($registration['registration_reviewer_name'] ?? '-') ?></dd>
+                            </div>
+                            <div>
+                                <dt>Registrerad</dt>
+                                <dd><?= h(format_date($registration['created_at'])) ?></dd>
+                            </div>
+                            <div>
+                                <dt>Granskad</dt>
+                                <dd><?= h($registration['reviewed_at'] ? format_date($registration['reviewed_at']) : '-') ?></dd>
+                            </div>
+                        </dl>
+
+                        <?php if ($registration['approval_status'] === 'pending'): ?>
+                            <div class="user-action-panel">
                                 <form class="inline-actions" method="post" action="dashboard_school_admin.php">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="action" value="review_registration">
@@ -291,12 +300,14 @@ require_once __DIR__ . '/includes/header.php';
                                     <button class="button button-primary" type="submit" name="decision" value="approve">Godkänn</button>
                                     <button class="button button-secondary" type="submit" name="decision" value="reject">Avvisa</button>
                                 </form>
+
                                 <?php if ($registration['role'] === 'student' && $schoolTeachers): ?>
-                                    <form class="inline-actions" method="post" action="dashboard_school_admin.php">
+                                    <form class="inline-actions assign-registration-form" method="post" action="dashboard_school_admin.php">
                                         <?= csrf_field() ?>
                                         <input type="hidden" name="action" value="assign_registration">
                                         <input type="hidden" name="user_id" value="<?= (int) $registration['id'] ?>">
-                                        <select name="teacher_id" aria-label="Välj lärare för <?= h($registration['full_name']) ?>" required>
+                                        <label for="teacher_id_<?= (int) $registration['id'] ?>">Skicka till lärare</label>
+                                        <select id="teacher_id_<?= (int) $registration['id'] ?>" name="teacher_id" required>
                                             <option value="">Välj lärare</option>
                                             <?php foreach ($schoolTeachers as $teacher): ?>
                                                 <option value="<?= (int) $teacher['id'] ?>" <?= (int) ($registration['registration_reviewer_id'] ?? 0) === (int) $teacher['id'] ? 'selected' : '' ?>>
@@ -304,19 +315,18 @@ require_once __DIR__ . '/includes/header.php';
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>
-                                        <button class="button button-secondary" type="submit">Skicka till lärare</button>
+                                        <button class="button button-secondary" type="submit">Skicka</button>
                                     </form>
                                 <?php elseif ($registration['role'] === 'student'): ?>
                                     <span class="muted">Ingen godkänd lärare finns att tilldela.</span>
                                 <?php endif; ?>
-                            <?php else: ?>
-                                <span class="muted"><?= h(format_date($registration['reviewed_at'])) ?></span>
-                            <?php endif; ?>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
-                </tbody>
-            </table>
+                            </div>
+                        <?php else: ?>
+                            <p class="muted">Registreringen är redan hanterad.</p>
+                        <?php endif; ?>
+                    </div>
+                </details>
+            <?php endforeach; ?>
         </div>
     <?php endif; ?>
 </section>

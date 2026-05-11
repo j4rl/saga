@@ -430,67 +430,92 @@ require_once __DIR__ . '/includes/header.php';
         <a class="button button-secondary" href="dashboard_admin.php">Rensa</a>
     </form>
 
-    <div class="table-wrap">
-        <table class="data-table">
-            <thead>
-            <tr>
-                <th>Användarnamn</th>
-                <th>E-post</th>
-                <th>Namn</th>
-                <th>Roll</th>
-                <th>Status</th>
-                <th>Skola</th>
-                <th>Skapad</th>
-                <th></th>
-            </tr>
-            </thead>
-            <tbody>
+    <?php if (!$users): ?>
+        <p class="empty-state">Inga användare matchar filtreringen.</p>
+    <?php else: ?>
+        <div class="user-list">
             <?php foreach ($users as $row): ?>
-                <?php $userFormId = 'admin-user-form-' . (int) $row['id']; ?>
-                <tr>
-                    <td><?= h($row['username']) ?></td>
-                    <td>
-                        <input form="<?= h($userFormId) ?>" name="email" type="email" maxlength="190" value="<?= h($row['email']) ?>" placeholder="e-post">
-                    </td>
-                    <td><input form="<?= h($userFormId) ?>" name="full_name" type="text" maxlength="160" value="<?= h($row['full_name']) ?>" required></td>
-                    <td>
-                        <select form="<?= h($userFormId) ?>" name="role" required>
-                            <?php foreach (['student', 'teacher', 'school_admin', 'super_admin'] as $role): ?>
-                                <option value="<?= h($role) ?>" <?= $row['role'] === $role ? 'selected' : '' ?>><?= h(role_label($role)) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </td>
-                    <td>
-                        <select form="<?= h($userFormId) ?>" name="approval_status" required>
-                            <?php foreach (['pending', 'approved', 'rejected'] as $status): ?>
-                                <option value="<?= h($status) ?>" <?= $row['approval_status'] === $status ? 'selected' : '' ?>><?= h(approval_status_label($status)) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </td>
-                    <td>
-                        <select form="<?= h($userFormId) ?>" name="school_id" required>
-                            <?php foreach ($schools as $school): ?>
-                                <option value="<?= (int) $school['id'] ?>" <?= (int) $row['school_id'] === (int) $school['id'] ? 'selected' : '' ?>>
-                                    <?= h($school['school_name']) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </td>
-                    <td><?= h(format_date($row['created_at'])) ?></td>
-                    <td>
-                        <input form="<?= h($userFormId) ?>" name="new_password" type="password" minlength="8" placeholder="nytt lösenord">
-                        <form id="<?= h($userFormId) ?>" class="inline-actions admin-user-form" method="post" action="dashboard_admin.php">
-                            <?= csrf_field() ?>
-                            <input type="hidden" name="action" value="update_user">
-                            <input type="hidden" name="user_id" value="<?= (int) $row['id'] ?>">
-                            <button class="button button-secondary" type="submit">Spara</button>
-                        </form>
-                    </td>
-                </tr>
+                <details class="user-disclosure">
+                    <summary>
+                        <span class="user-summary-main">
+                            <strong><?= h($row['full_name']) ?></strong>
+                            <span><?= h($row['username']) ?></span>
+                        </span>
+                        <span class="user-summary-meta">
+                            <span class="status-pill status-<?= h($row['approval_status']) ?>">
+                                <?= h(approval_status_label($row['approval_status'])) ?>
+                            </span>
+                            <span><?= h(role_label($row['role'])) ?></span>
+                            <span><?= h($row['school_name']) ?></span>
+                        </span>
+                    </summary>
+
+                    <form class="user-detail-form" method="post" action="dashboard_admin.php">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="action" value="update_user">
+                        <input type="hidden" name="user_id" value="<?= (int) $row['id'] ?>">
+
+                        <dl class="user-facts">
+                            <div>
+                                <dt>Användarnamn</dt>
+                                <dd><?= h($row['username']) ?></dd>
+                            </div>
+                            <div>
+                                <dt>Skapad</dt>
+                                <dd><?= h(format_date($row['created_at'])) ?></dd>
+                            </div>
+                        </dl>
+
+                        <div class="user-edit-grid">
+                            <div class="field">
+                                <label for="user_email_<?= (int) $row['id'] ?>">E-post</label>
+                                <input id="user_email_<?= (int) $row['id'] ?>" name="email" type="email" maxlength="190" value="<?= h($row['email']) ?>" placeholder="e-post">
+                            </div>
+                            <div class="field">
+                                <label for="user_full_name_<?= (int) $row['id'] ?>">Namn</label>
+                                <input id="user_full_name_<?= (int) $row['id'] ?>" name="full_name" type="text" maxlength="160" value="<?= h($row['full_name']) ?>" required>
+                            </div>
+                            <div class="field">
+                                <label for="user_role_<?= (int) $row['id'] ?>">Roll</label>
+                                <select id="user_role_<?= (int) $row['id'] ?>" name="role" required>
+                                    <?php foreach (['student', 'teacher', 'school_admin', 'super_admin'] as $role): ?>
+                                        <option value="<?= h($role) ?>" <?= $row['role'] === $role ? 'selected' : '' ?>><?= h(role_label($role)) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label for="user_status_<?= (int) $row['id'] ?>">Status</label>
+                                <select id="user_status_<?= (int) $row['id'] ?>" name="approval_status" required>
+                                    <?php foreach (['pending', 'approved', 'rejected'] as $status): ?>
+                                        <option value="<?= h($status) ?>" <?= $row['approval_status'] === $status ? 'selected' : '' ?>><?= h(approval_status_label($status)) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label for="user_school_<?= (int) $row['id'] ?>">Skola</label>
+                                <select id="user_school_<?= (int) $row['id'] ?>" name="school_id" required>
+                                    <?php foreach ($schools as $school): ?>
+                                        <option value="<?= (int) $school['id'] ?>" <?= (int) $row['school_id'] === (int) $school['id'] ? 'selected' : '' ?>>
+                                            <?= h($school['school_name']) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label for="user_new_password_<?= (int) $row['id'] ?>">Nytt lösenord</label>
+                                <input id="user_new_password_<?= (int) $row['id'] ?>" name="new_password" type="password" minlength="8" placeholder="Lämna tomt för att behålla nuvarande">
+                            </div>
+                        </div>
+
+                        <div class="action-row">
+                            <span class="muted">Ändrat lösenord markeras som tillfälligt och måste bytas vid nästa inloggning.</span>
+                            <button class="button button-primary" type="submit">Spara användare</button>
+                        </div>
+                    </form>
+                </details>
             <?php endforeach; ?>
-            </tbody>
-        </table>
-    </div>
+        </div>
+    <?php endif; ?>
 
     <?php if ($usersPages > 1): ?>
         <nav class="pagination" aria-label="Paginering för användare">

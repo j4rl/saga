@@ -39,6 +39,8 @@ CREATE TABLE IF NOT EXISTS users (
     reviewed_by INT UNSIGNED NULL,
     reviewed_at DATETIME NULL,
     registration_reviewer_id INT UNSIGNED NULL,
+    privacy_consent_at DATETIME NULL,
+    privacy_consent_version VARCHAR(40) NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_users_school
@@ -78,6 +80,8 @@ CREATE TABLE IF NOT EXISTS projects (
     submitted_at DATETIME NULL,
     approved_at DATETIME NULL,
     approved_by INT UNSIGNED NULL,
+    publication_consent_at DATETIME NULL,
+    publication_consent_version VARCHAR(40) NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_projects_user

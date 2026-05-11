@@ -92,12 +92,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const publicCheckbox = document.querySelector('[data-public-requires-submission]');
   const submittedCheckbox = document.querySelector('[data-submission-toggle]');
+  const publicationConsent = document.querySelector('[data-publication-consent]');
+  const publicationConsentCheckbox = publicationConsent ? publicationConsent.querySelector('input[type="checkbox"]') : null;
   if (publicCheckbox && submittedCheckbox) {
     const validatePublication = () => {
       if (publicCheckbox.checked && !submittedCheckbox.checked) {
         publicCheckbox.setCustomValidity('Arbetet kan bara göras publikt när slutlig inlämning är ikryssad.');
       } else {
         publicCheckbox.setCustomValidity('');
+      }
+
+      if (publicationConsent && publicationConsentCheckbox) {
+        publicationConsent.hidden = !publicCheckbox.checked;
+        publicationConsentCheckbox.required = publicCheckbox.checked;
+        if (!publicCheckbox.checked) {
+          publicationConsentCheckbox.checked = false;
+        }
       }
     };
 

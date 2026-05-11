@@ -962,6 +962,31 @@ textarea:focus {
     margin: 18px 0;
 }
 
+.consent-box,
+.danger-zone {
+    display: grid;
+    gap: 12px;
+}
+
+.consent-box {
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    margin: 18px 0;
+}
+
+.consent-box[hidden] {
+    display: none;
+}
+
+.delete-account-form {
+    display: grid;
+    gap: 12px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+}
+
 .check-option {
     display: flex;
     align-items: flex-start;
@@ -1090,6 +1115,123 @@ textarea:focus {
     grid-template-columns: minmax(260px, 0.8fr) minmax(320px, 1.2fr);
     gap: 18px;
     margin-bottom: 28px;
+}
+
+.user-list {
+    display: grid;
+    gap: 12px;
+}
+
+.user-disclosure {
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+}
+
+.user-disclosure summary {
+    display: grid;
+    grid-template-columns: 24px minmax(220px, 1fr) minmax(320px, auto);
+    gap: 16px;
+    align-items: center;
+    padding: 14px 16px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.user-disclosure summary::-webkit-details-marker {
+    display: none;
+}
+
+.user-disclosure summary:hover,
+.user-disclosure summary:focus-visible {
+    background: var(--surface-strong);
+    outline: none;
+}
+
+.user-disclosure summary::before {
+    content: "+";
+    display: inline-grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--primary);
+    font-weight: 700;
+}
+
+.user-disclosure[open] summary::before {
+    content: "-";
+}
+
+.user-summary-main {
+    display: grid;
+    gap: 2px;
+}
+
+.user-summary-main span,
+.user-summary-meta {
+    color: var(--muted);
+}
+
+.user-summary-meta {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.user-detail-form {
+    display: grid;
+    gap: 18px;
+    padding: 18px 16px;
+    border-top: 1px solid var(--line);
+    background: color-mix(in srgb, var(--surface) 92%, var(--bg));
+}
+
+.user-facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin: 0;
+}
+
+.user-facts div {
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+}
+
+.user-facts dd {
+    margin: 4px 0 0;
+    color: var(--muted);
+}
+
+.user-edit-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.user-edit-grid .field {
+    margin-bottom: 0;
+}
+
+.user-action-panel {
+    display: grid;
+    gap: 12px;
+}
+
+.assign-registration-form {
+    align-items: flex-end;
+}
+
+.assign-registration-form label {
+    flex-basis: 100%;
 }
 
 .settings-layout {
@@ -1331,9 +1473,21 @@ textarea:focus {
     .profile-layout,
     .toggle-row,
     .admin-grid,
+    .user-disclosure summary,
+    .user-facts,
+    .user-edit-grid,
     .settings-layout,
     .theme-builder {
         grid-template-columns: 1fr;
+    }
+
+    .user-summary-meta {
+        justify-content: flex-start;
+        grid-column: 2;
+    }
+
+    .user-disclosure summary {
+        grid-template-columns: 24px minmax(0, 1fr);
     }
 
     .settings-actions {

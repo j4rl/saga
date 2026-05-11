@@ -4,6 +4,7 @@ declare(strict_types=1);
 function handle_project_submission(mysqli $conn, array $user, ?array $existingProject): array
 {
     verify_csrf();
+    ensure_privacy_consent_columns($conn);
 
     $canEditContent = $existingProject
         ? can_edit_project_content($existingProject, $user)
@@ -103,6 +104,9 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
     if ($canManagePublication && $requestedPublic === 1 && $isSubmitted === 0) {
         $errors[] = 'Arbetet kan bara göras publikt när slutlig inlämning är ikryssad.';
     }
+    if ($canManagePublication && $requestedPublic === 1 && empty($_POST['confirm_publication_consent'])) {
+        $errors[] = 'Du behöver samtycka till att arbetet och ditt namn blir sökbart innan du publicerar arbetet.';
+    }
 
     $upload = validate_pdf_upload($_FILES['pdf_file'] ?? [], $existingProject === null);
     if (!$upload['ok']) {
@@ -134,6 +138,16 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
                     ? (string) $existingProject['submitted_at']
                     : date('Y-m-d H:i:s');
         }
+        $publicationConsentAt = null;
+        $publicationConsentVersion = null;
+        if ($isPublic === 1) {
+            $publicationConsentAt = $existingProject
+                && (int) ($existingProject['is_public'] ?? 0) === 1
+                && !empty($existingProject['publication_consent_at'] ?? null)
+                    ? (string) $existingProject['publication_consent_at']
+                    : date('Y-m-d H:i:s');
+            $publicationConsentVersion = publication_consent_version();
+        }
         $supervisorName = $teacher ? (string) $teacher['full_name'] : $manualSupervisorName;
         $storedSupervisorUserId = $teacher ? $supervisorUserId : null;
         $categoryId = (int) $category['id'];
@@ -147,9 +161,10 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
                     'UPDATE projects
                      SET title = ?, subtitle = ?, category_id = ?, supervisor = ?, supervisor_user_id = ?,
                          abstract_text = ?, summary_text = ?, pdf_filename = ?, pdf_original_name = ?,
-                         is_public = ?, is_submitted = ?, submitted_at = ?, updated_at = NOW()
+                         is_public = ?, is_submitted = ?, submitted_at = ?,
+                         publication_consent_at = ?, publication_consent_version = ?, updated_at = NOW()
                      WHERE id = ?',
-                    'ssisissssiisi',
+                    'ssisissssiisssi',
                     [
                         $title,
                         $subtitle,
@@ -163,6 +178,8 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
                         $isPublic,
                         $isSubmitted,
                         $submittedAt,
+                        $publicationConsentAt,
+                        $publicationConsentVersion,
                         $projectId,
                     ]
                 );
@@ -180,9 +197,10 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
                     'UPDATE projects
                      SET title = ?, subtitle = ?, category_id = ?, supervisor = ?, supervisor_user_id = ?,
                          abstract_text = ?, summary_text = ?, is_public = ?, is_submitted = ?,
-                         submitted_at = ?, updated_at = NOW()
+                         submitted_at = ?, publication_consent_at = ?, publication_consent_version = ?,
+                         updated_at = NOW()
                      WHERE id = ?',
-                    'ssisissiisi',
+                    'ssisissiisssi',
                     [
                         $title,
                         $subtitle,
@@ -194,6 +212,8 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
                         $isPublic,
                         $isSubmitted,
                         $submittedAt,
+                        $publicationConsentAt,
+                        $publicationConsentVersion,
                         $projectId,
                     ]
                 );
@@ -219,9 +239,10 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
                 $conn,
                 'INSERT INTO projects
                  (user_id, school_id, category_id, title, subtitle, supervisor, supervisor_user_id,
-                  abstract_text, summary_text, pdf_filename, pdf_original_name, is_public, is_submitted, submitted_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                'iiisssissssiis',
+                  abstract_text, summary_text, pdf_filename, pdf_original_name, is_public, is_submitted, submitted_at,
+                  publication_consent_at, publication_consent_version)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                'iiisssissssiisss',
                 [
                     $projectOwnerId,
                     $projectSchoolId,
@@ -237,6 +258,8 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
                     $isPublic,
                     $isSubmitted,
                     $submittedAt,
+                    $publicationConsentAt,
+                    $publicationConsentVersion,
                 ]
             );
 

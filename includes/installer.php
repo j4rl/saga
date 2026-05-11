@@ -65,6 +65,8 @@ function installer_create_schema(mysqli $conn, string $prefix, string $schoolNam
             reviewed_by INT UNSIGNED NULL,
             reviewed_at DATETIME NULL,
             registration_reviewer_id INT UNSIGNED NULL,
+            privacy_consent_at DATETIME NULL,
+            privacy_consent_version VARCHAR(40) NULL,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             CONSTRAINT fk_{$prefix}users_school
@@ -103,6 +105,8 @@ function installer_create_schema(mysqli $conn, string $prefix, string $schoolNam
             submitted_at DATETIME NULL,
             approved_at DATETIME NULL,
             approved_by INT UNSIGNED NULL,
+            publication_consent_at DATETIME NULL,
+            publication_consent_version VARCHAR(40) NULL,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             CONSTRAINT fk_{$prefix}projects_user

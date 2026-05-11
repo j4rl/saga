@@ -61,8 +61,20 @@ require_once __DIR__ . '/includes/header.php';
         <li>Användarkonton innehåller namn, användarnamn, roll, skola och valfri e-postadress.</li>
         <li>Gymnasiearbeten innehåller elevens namn, titel, handledare, kategori, abstract, sammanfattning och uppladdad PDF.</li>
         <li>Privata arbeten visas bara enligt behörighetsreglerna. Publika arbeten visas för alla.</li>
+        <li>Vid registrering samtycker användaren till att SAGA behandlar kontouppgifter i relation till vald skola.</li>
+        <li>Om en elev väljer publik synlighet samtycker eleven separat till att namn och gymnasiearbete blir sökbart i SAGA.</li>
         <li>Auditloggen sparar händelser med anonymiserad IP-prefixinformation, inte full IP-adress.</li>
         <li>E-postloggen sparar mottagare, ämne, status och fel, men inte brödtexten i nya notiser.</li>
+    </ul>
+</section>
+
+<section class="section">
+    <h2>Dina rättigheter</h2>
+    <ul class="checklist">
+        <li>Du kan ladda ned en kopia av dina uppgifter från profilsidan.</li>
+        <li>Du kan ta tillbaka publik synlighet för ett arbete genom att göra arbetet privat igen.</li>
+        <li>Du kan begära radering direkt från profilsidan. Då tas kontot, personuppgifter, egna arbeten, uppladdade filer och återkoppling kopplad till kontot bort från SAGA.</li>
+        <li>Vissa tekniska driftloggar kan behöva finnas kvar en kort tid, men kopplingen till kontot tas bort där SAGA kan göra det automatiskt.</li>
     </ul>
 </section>
 

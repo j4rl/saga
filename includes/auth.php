@@ -569,6 +569,239 @@ function change_current_user_password(mysqli $conn, array $user, string $current
     return ['ok' => true];
 }
 
+function export_upload_file(?string $storedFilename, ?string $originalName): ?array
+{
+    if (!$storedFilename) {
+        return null;
+    }
+
+    $safeName = basename($storedFilename);
+    $path = UPLOAD_DIR . DIRECTORY_SEPARATOR . $safeName;
+    if (!is_file($path)) {
+        return [
+            'stored_filename' => $safeName,
+            'original_name' => $originalName,
+            'missing' => true,
+        ];
+    }
+
+    return [
+        'stored_filename' => $safeName,
+        'original_name' => $originalName,
+        'mime_type' => 'application/pdf',
+        'size_bytes' => filesize($path) ?: 0,
+        'content_base64' => base64_encode((string) file_get_contents($path)),
+    ];
+}
+
+function build_personal_data_export(mysqli $conn, array $user): array
+{
+    ensure_privacy_consent_columns($conn);
+
+    $userId = (int) $user['id'];
+    $account = fetch_one_prepared(
+        $conn,
+        'SELECT u.id, u.username, u.email, u.full_name, u.role, u.approval_status,
+                u.privacy_consent_at, u.privacy_consent_version,
+                u.created_at, u.updated_at, s.school_name
+         FROM users u
+         INNER JOIN schools s ON s.id = u.school_id
+         WHERE u.id = ?
+         LIMIT 1',
+        'i',
+        [$userId]
+    ) ?? [];
+
+    $projects = fetch_all_prepared(
+        $conn,
+        'SELECT p.*, s.school_name, c.category_name, COALESCE(su.full_name, p.supervisor) AS supervisor_name
+         FROM projects p
+         INNER JOIN schools s ON s.id = p.school_id
+         INNER JOIN categories c ON c.id = p.category_id
+         LEFT JOIN users su ON su.id = p.supervisor_user_id
+         WHERE p.user_id = ?
+         ORDER BY p.created_at ASC, p.id ASC',
+        'i',
+        [$userId]
+    );
+
+    foreach ($projects as &$project) {
+        $projectId = (int) $project['id'];
+        $project['current_pdf_file'] = export_upload_file($project['pdf_filename'] ?? null, $project['pdf_original_name'] ?? null);
+        unset($project['pdf_filename'], $project['pdf_original_name']);
+
+        $versions = fetch_all_prepared(
+            $conn,
+            'SELECT uv.id, uv.stored_filename, uv.original_name, uv.created_at, u.full_name AS uploaded_by_name
+             FROM upload_versions uv
+             INNER JOIN users u ON u.id = uv.uploaded_by
+             WHERE uv.project_id = ?
+             ORDER BY uv.created_at ASC, uv.id ASC',
+            'i',
+            [$projectId]
+        );
+        foreach ($versions as &$version) {
+            $version['file'] = export_upload_file($version['stored_filename'] ?? null, $version['original_name'] ?? null);
+            unset($version['stored_filename']);
+        }
+        unset($version);
+        $project['upload_versions'] = $versions;
+
+        $project['feedback'] = fetch_all_prepared(
+            $conn,
+            'SELECT pf.comment_text, pf.created_at, u.full_name, u.role
+             FROM project_feedback pf
+             INNER JOIN users u ON u.id = pf.user_id
+             WHERE pf.project_id = ?
+             ORDER BY pf.created_at ASC, pf.id ASC',
+            'i',
+            [$projectId]
+        );
+    }
+    unset($project);
+
+    $commentsWritten = fetch_all_prepared(
+        $conn,
+        'SELECT pf.comment_text, pf.created_at, p.title AS project_title
+         FROM project_feedback pf
+         INNER JOIN projects p ON p.id = pf.project_id
+         WHERE pf.user_id = ?
+         ORDER BY pf.created_at ASC, pf.id ASC',
+        'i',
+        [$userId]
+    );
+
+    $auditEntries = fetch_all_prepared(
+        $conn,
+        'SELECT action, entity_type, entity_id, created_at
+         FROM audit_log
+         WHERE user_id = ? OR (entity_type = \'user\' AND entity_id = ?)
+         ORDER BY created_at ASC, id ASC',
+        'ii',
+        [$userId, $userId]
+    );
+
+    $emailNotifications = [];
+    if (!empty($account['email'])) {
+        $emailNotifications = fetch_all_prepared(
+            $conn,
+            'SELECT recipient_email, subject, status, error_message, created_at
+             FROM email_notifications
+             WHERE recipient_email = ?
+             ORDER BY created_at ASC, id ASC',
+            's',
+            [(string) $account['email']]
+        );
+    }
+
+    return [
+        'exported_at' => date(DATE_ATOM),
+        'format' => 'SAGA personal data export v1',
+        'account' => $account,
+        'projects' => $projects,
+        'comments_written' => $commentsWritten,
+        'audit_entries' => $auditEntries,
+        'email_notifications' => $emailNotifications,
+    ];
+}
+
+function collect_owned_project_files(mysqli $conn, int $userId): array
+{
+    $files = [];
+    $projects = fetch_all_prepared(
+        $conn,
+        'SELECT id, pdf_filename FROM projects WHERE user_id = ?',
+        'i',
+        [$userId]
+    );
+
+    $projectIds = [];
+    foreach ($projects as $project) {
+        $projectIds[] = (int) $project['id'];
+        if (!empty($project['pdf_filename'])) {
+            $files[] = basename((string) $project['pdf_filename']);
+        }
+    }
+
+    if ($projectIds) {
+        $placeholders = implode(',', array_fill(0, count($projectIds), '?'));
+        $versions = fetch_all_prepared(
+            $conn,
+            "SELECT stored_filename FROM upload_versions WHERE project_id IN ($placeholders)",
+            str_repeat('i', count($projectIds)),
+            $projectIds
+        );
+        foreach ($versions as $version) {
+            if (!empty($version['stored_filename'])) {
+                $files[] = basename((string) $version['stored_filename']);
+            }
+        }
+    }
+
+    return array_values(array_unique(array_filter($files)));
+}
+
+function delete_current_user_account(mysqli $conn, array $user, string $currentPassword, string $confirmation): array
+{
+    $userId = (int) $user['id'];
+    if ($confirmation !== 'RADERA') {
+        return ['ok' => false, 'error' => 'Skriv RADERA för att bekräfta att kontot och personuppgifterna ska tas bort.'];
+    }
+
+    $row = fetch_one_prepared($conn, 'SELECT password_hash, role, email, full_name FROM users WHERE id = ? LIMIT 1', 'i', [$userId]);
+    if (!$row || !password_verify($currentPassword, $row['password_hash'])) {
+        return ['ok' => false, 'error' => 'Nuvarande lösenord stämmer inte.'];
+    }
+
+    if (($row['role'] ?? '') === 'super_admin') {
+        $superAdminCount = fetch_one_prepared($conn, 'SELECT COUNT(*) AS total FROM users WHERE role = \'super_admin\' AND approval_status = \'approved\'');
+        if ((int) ($superAdminCount['total'] ?? 0) <= 1) {
+            return ['ok' => false, 'error' => 'Den sista godkända superadminen kan inte radera sitt konto. Skapa eller godkänn en annan superadmin först.'];
+        }
+    }
+
+    $ownedFiles = collect_owned_project_files($conn, $userId);
+    $email = (string) ($row['email'] ?? '');
+    $fullName = (string) ($row['full_name'] ?? '');
+
+    try {
+        $conn->begin_transaction();
+
+        execute_prepared($conn, 'DELETE FROM upload_versions WHERE uploaded_by = ?', 'i', [$userId]);
+        execute_prepared($conn, 'DELETE FROM projects WHERE user_id = ?', 'i', [$userId]);
+        execute_prepared($conn, 'DELETE FROM project_feedback WHERE user_id = ?', 'i', [$userId]);
+        execute_prepared($conn, 'DELETE FROM password_resets WHERE user_id = ?', 'i', [$userId]);
+        execute_prepared($conn, 'UPDATE audit_log SET user_id = NULL, entity_id = NULL WHERE user_id = ? OR (entity_type = \'user\' AND entity_id = ?)', 'ii', [$userId, $userId]);
+
+        if ($email !== '') {
+            execute_prepared($conn, 'DELETE FROM email_notifications WHERE recipient_email = ?', 's', [$email]);
+        }
+        if ($fullName !== '') {
+            $like = '%' . $fullName . '%';
+            execute_prepared($conn, 'DELETE FROM email_notifications WHERE subject LIKE ? OR body LIKE ?', 'ss', [$like, $like]);
+        }
+
+        execute_prepared($conn, 'DELETE FROM users WHERE id = ?', 'i', [$userId]);
+        log_event($conn, null, 'account_delete', 'user', null);
+
+        $conn->commit();
+    } catch (Throwable $exception) {
+        $conn->rollback();
+        log_app_error('Kunde inte radera konto.', $exception);
+
+        return ['ok' => false, 'error' => 'Kontot kunde inte raderas just nu. Försök igen eller kontakta administratör.'];
+    }
+
+    foreach ($ownedFiles as $filename) {
+        $path = UPLOAD_DIR . DIRECTORY_SEPARATOR . $filename;
+        if (is_file($path)) {
+            @unlink($path);
+        }
+    }
+
+    return ['ok' => true];
+}
+
 function fetch_registration_requests(mysqli $conn, ?int $schoolId = null): array
 {
     ensure_user_security_columns($conn);

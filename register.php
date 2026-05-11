@@ -15,10 +15,12 @@ $formData = [
     'full_name' => '',
     'role' => 'student',
     'school_id' => '',
+    'processing_consent' => false,
 ];
 
 if (is_post()) {
     verify_csrf();
+    ensure_privacy_consent_columns($conn);
 
     $username = trim((string) ($_POST['username'] ?? ''));
     $email = normalize_email((string) ($_POST['email'] ?? ''));
@@ -27,6 +29,7 @@ if (is_post()) {
     $passwordConfirm = (string) ($_POST['password_confirm'] ?? '');
     $role = (string) ($_POST['role'] ?? 'student');
     $schoolId = (int) ($_POST['school_id'] ?? 0);
+    $processingConsent = isset($_POST['processing_consent']);
 
     $formData = [
         'username' => $username,
@@ -34,6 +37,7 @@ if (is_post()) {
         'full_name' => $fullName,
         'role' => $role,
         'school_id' => (string) $schoolId,
+        'processing_consent' => $processingConsent,
     ];
 
     if ($username === '' || mb_strlen($username) > 80) {
@@ -57,16 +61,20 @@ if (is_post()) {
     if ($schoolId <= 0) {
         $errors[] = 'Välj skola.';
     }
+    if (!$processingConsent) {
+        $errors[] = 'Du behöver samtycka till att SAGA behandlar dina kontouppgifter i relation till din skola.';
+    }
 
     if (!$errors) {
         try {
             $passwordHash = password_hash($password, PASSWORD_DEFAULT);
             $stmt = execute_prepared(
                 $conn,
-                'INSERT INTO users (username, email, password_hash, full_name, role, school_id, approval_status)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)',
-                'sssssis',
-                [$username, $email, $passwordHash, $fullName, $role, $schoolId, 'pending']
+                'INSERT INTO users
+                 (username, email, password_hash, full_name, role, school_id, approval_status, privacy_consent_at, privacy_consent_version)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?)',
+                'ssssssis',
+                [$username, $email, $passwordHash, $fullName, $role, $schoolId, 'pending', privacy_consent_version()]
             );
 
             log_event($conn, null, 'registration_create', 'user', (int) $stmt->insert_id);
@@ -145,6 +153,21 @@ require_once __DIR__ . '/includes/header.php';
         <div class="field">
             <label for="password_confirm">Bekräfta lösenord</label>
             <input id="password_confirm" name="password_confirm" type="password" minlength="8" required autocomplete="new-password">
+        </div>
+
+        <div class="consent-box">
+            <label class="check-option">
+                <input type="checkbox" name="processing_consent" value="1" <?= $formData['processing_consent'] ? 'checked' : '' ?> required>
+                <span>
+                    Jag samtycker till att SAGA behandlar mitt namn, mitt användarkonto, min roll och min koppling till vald skola för att skolan ska kunna administrera registrering, behörighet, handledning och arkivering av gymnasiearbeten.
+                </span>
+            </label>
+            <p class="field-help">
+                Om du är elev kan ditt gymnasiearbete senare hanteras i SAGA. Publicering är frivillig och kräver ett separat val: om du väljer att publicera samtycker du då till att ditt namn och arbetet blir sökbart i SAGA.
+            </p>
+            <p class="field-help">
+                Du kan begära radering av ditt konto och dina personuppgifter via profilsidan. Läs mer i <a href="privacy.php" target="_blank" rel="noopener">Integritet och kakor</a>.
+            </p>
         </div>
 
         <button class="button button-primary button-full" type="submit">Skicka registrering</button>

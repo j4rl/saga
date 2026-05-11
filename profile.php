@@ -9,13 +9,22 @@ $canEditName = can_edit_own_profile_name($user);
 $cookieConsentAccepted = cookie_consent_accepted();
 $profileError = null;
 $passwordError = null;
+$deleteError = null;
 
 if (is_post()) {
     verify_csrf();
 
     $action = (string) ($_POST['action'] ?? '');
 
-    if ($action === 'update_profile') {
+    if ($action === 'download_personal_data') {
+        $export = build_personal_data_export($conn, $user);
+        $filename = 'saga-persondata-' . preg_replace('/[^a-zA-Z0-9_-]+/', '-', (string) $user['username']) . '-' . date('Ymd-His') . '.json';
+
+        header('Content-Type: application/json; charset=UTF-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        echo json_encode($export, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
+    } elseif ($action === 'update_profile') {
         $result = update_current_user_profile(
             $conn,
             $user,
@@ -44,6 +53,22 @@ if (is_post()) {
         }
 
         $passwordError = $result['error'];
+    } elseif ($action === 'delete_account') {
+        $result = delete_current_user_account(
+            $conn,
+            $user,
+            (string) ($_POST['delete_current_password'] ?? ''),
+            (string) ($_POST['delete_confirmation'] ?? '')
+        );
+
+        if ($result['ok']) {
+            logout_user();
+            start_secure_session();
+            set_flash('success', 'Kontot och personuppgifterna har tagits bort från SAGA.');
+            redirect('index.php');
+        }
+
+        $deleteError = $result['error'];
     } elseif ($action === 'clear_cookie_consent') {
         clear_cookie_consent();
         set_flash('success', 'Godkännandet av kakor har tagits bort.');
@@ -176,6 +201,45 @@ require_once __DIR__ . '/includes/header.php';
                 <p class="field-help">Du kan godkänna kakor igen via meddelandet längst ner på sidan.</p>
             <?php endif; ?>
         </form>
+
+        <section class="form-card profile-form-card danger-zone">
+            <h2>Data och radering</h2>
+            <p class="muted">
+                Du kan ladda ned en kopia av dina kontouppgifter, gymnasiearbeten, återkoppling, relevanta loggreferenser och uppladdade PDF-filer innan du raderar kontot.
+            </p>
+
+            <form method="post" action="profile.php">
+                <?= csrf_field() ?>
+                <input type="hidden" name="action" value="download_personal_data">
+                <button class="button button-secondary" type="submit">Ladda ned min data</button>
+            </form>
+
+            <form class="delete-account-form" method="post" action="profile.php" autocomplete="on">
+                <?= csrf_field() ?>
+                <input type="hidden" name="action" value="delete_account">
+
+                <?php if ($deleteError): ?>
+                    <div class="notice notice-error"><?= h($deleteError) ?></div>
+                <?php endif; ?>
+
+                <div class="notice notice-error">
+                    Radering tar bort kontot, personuppgifter, egna gymnasiearbeten, uppladdade filer och återkoppling som hör till kontot. Åtgärden kan inte ångras.
+                </div>
+
+                <div class="field">
+                    <label for="delete_current_password">Nuvarande lösenord</label>
+                    <input id="delete_current_password" name="delete_current_password" type="password" required autocomplete="current-password">
+                </div>
+
+                <div class="field">
+                    <label for="delete_confirmation">Bekräftelse</label>
+                    <input id="delete_confirmation" name="delete_confirmation" type="text" required autocomplete="off">
+                    <p class="field-help">Skriv <strong>RADERA</strong> för att bekräfta.</p>
+                </div>
+
+                <button class="button button-secondary" type="submit">Radera mitt konto</button>
+            </form>
+        </section>
     </div>
 </section>
 

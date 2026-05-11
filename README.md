@@ -30,7 +30,7 @@ SAGA hjälper skolor att samla in och hantera gymnasiearbeten på ett kontroller
 | Publicering | Eleven styr själv om ett slutligt inlämnat arbete ska vara publikt |
 | Teknik | PHP, MySQL, HTML, CSS och JavaScript |
 | Verifiering | `.\tools\verify.ps1` kör PHP-syntaxkontroll och säkerhetstester |
-| Säkerhet | Rollbaserad åtkomst, CSRF-skydd, filvalidering, auditlogg och inloggningsbegränsning |
+| Säkerhet | Rollbaserad åtkomst, CSRF-skydd, filvalidering, samtycke, auditlogg och inloggningsbegränsning |
 
 ## Varför SAGA finns
 
@@ -53,10 +53,11 @@ SAGA stödjer hela flödet från registrering till arkivering:
 3. Skoladministratör kan tilldela väntande elevregistreringar till en lärare på skolan.
 4. Eleven skapar, redigerar och lämnar in sitt gymnasiearbete.
 5. Inlämnade arbeten låses så att innehållet inte ändras i efterhand utan upplåsning.
-6. Handledare följer arbetet och kan ge återkoppling på projektsidan.
-7. Eleven väljer själv om ett slutligt inlämnat arbete ska vara publikt.
-8. Publika arbeten blir sökbara för besökare.
-9. Superadmin hanterar skolor, användare, kategorier, driftkontroll och auditlogg.
+6. Handledare följer arbetet och kan ge återkoppling innan slutlig inlämning.
+7. Eleven kan läsa återkoppling och ändra arbetet innan det lämnas in slutligt.
+8. Eleven väljer själv om ett slutligt inlämnat arbete ska vara publikt och samtycker då till sökbar publicering.
+9. Publika arbeten blir sökbara för besökare.
+10. Superadmin hanterar skolor, användare, kategorier, driftkontroll och auditlogg.
 
 > Ett arbete kan vara färdigt och inlämnat utan att vara publikt. SAGA skiljer därför tydligt på **inlämning** och **publicering**.
 
@@ -79,6 +80,7 @@ Registrering
     -> konto godkänns
     -> arbete skapas
     -> handledning och återkoppling
+    -> elevens justeringar
     -> slutlig inlämning
     -> eventuell publicering
     -> sökbart arkiv
@@ -104,10 +106,11 @@ En mer detaljerad säkerhetsanalys finns i [security.md](security.md).
 | Område | Funktioner |
 | --- | --- |
 | Konton och roller | Rollbaserad behörighet, godkännande av nya konton och tilldelning av elevregistreringar till lärare. |
-| Projekt | Elevstyrd publicering, slutlig inlämning med låsning och återkoppling på projektsidan. |
+| Projekt | Återkoppling före slutlig inlämning, elevstyrd publicering och slutlig inlämning med låsning. |
 | Filer | PDF-uppladdning, PDF-historik och behörighetskontrollerad PDF-visning. |
 | Sökning | Sökning bland publika arbeten och kategoribaserad struktur. |
 | Säkerhet | Lösenordsåterställning, inloggningsbegränsning, sanerad bas-URL och säkrare e-postheaders. |
+| Integritet | Samtycke vid registrering, separat publiceringssamtycke, dataexport och kontoradering. |
 | Drift | Auditlogg, driftkontroll samt gallring av äldre loggar och filversioner. |
 
 ## Inför bred produktion

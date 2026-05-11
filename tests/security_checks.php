@@ -70,8 +70,11 @@ $student = [
     'full_name' => 'Exempel Elev',
 ];
 check(can_view_project($ownDraft, $student) === true, 'Elev ska kunna se eget arbete.');
+check(can_comment_project($ownDraft, $student) === true, 'Elev ska kunna se och svara pa aterkoppling innan slutlig inlamning.');
 check(can_edit_project_content($ownDraft, $student) === true, 'Elev ska kunna redigera eget utkast.');
 check(can_edit_project_content($ownSubmitted, $student) === false, 'Elev ska inte kunna redigera slutligt inlamnat arbete.');
+check(can_comment_project($ownDraft, $teacher) === true, 'Handledare ska kunna ge aterkoppling innan slutlig inlamning.');
+check(can_comment_project($otherDraft, $teacher) === false, 'Larare ska inte kunna kommentera andra larares elevutkast.');
 
 $otherStudent = $student;
 $otherStudent['id'] = 21;
@@ -104,14 +107,24 @@ check(str_contains($projectsSource, 'p.category_id = ?'), 'Kategori-godkannande 
 
 $projectEditSource = file_get_contents(__DIR__ . '/../project_edit.php') ?: '';
 check(str_contains($projectEditSource, 'supervisor_name_manual'), 'Elever ska kunna ange tidigare handledares namn manuellt.');
+check(str_contains($projectEditSource, 'confirm_publication_consent'), 'Publicering ska krava separat samtycke till sokbarhet.');
 
 $authSource = file_get_contents(__DIR__ . '/../includes/auth.php') ?: '';
 check(str_contains($authSource, 'function assign_registration_to_teacher'), 'Skoladmin ska kunna tilldela elevregistreringar till larare.');
 check(str_contains($authSource, 'function fetch_teacher_registration_requests'), 'Larare ska kunna hamta tilldelade elevregistreringar.');
 check(str_contains($authSource, "registration_reviewer_id = ?"), 'Larare ska bara kunna godkanna tilldelade elevregistreringar.');
+check(str_contains($authSource, 'function build_personal_data_export'), 'Anvandare ska kunna exportera sina personuppgifter.');
+check(str_contains($authSource, 'function delete_current_user_account'), 'Anvandare ska kunna radera konto och persondata.');
 check(str_contains($authSource, 'function password_reset_is_rate_limited'), 'Losenordsaterstallning ska ha separat rate limiting.');
 check(str_contains($authSource, 'password_reset_record_request($conn, $identifier);'), 'Losenordsaterstallning ska registrera forfragan innan anvandaruppslag ger effekt.');
 check(str_contains($authSource, 'password_reset_rate_limited'), 'Rate limit for losenordsaterstallning ska loggas neutralt.');
+
+$registerSource = file_get_contents(__DIR__ . '/../register.php') ?: '';
+check(str_contains($registerSource, 'processing_consent'), 'Registrering ska krava samtycke till personuppgiftsbehandling.');
+
+$profileSource = file_get_contents(__DIR__ . '/../profile.php') ?: '';
+check(str_contains($profileSource, 'download_personal_data'), 'Profilsidan ska kunna ladda ned anvandarens data.');
+check(str_contains($profileSource, 'delete_account'), 'Profilsidan ska kunna radera konto.');
 
 $schoolAdminSource = file_get_contents(__DIR__ . '/../dashboard_school_admin.php') ?: '';
 check(str_contains($schoolAdminSource, 'assign_registration'), 'Skoladminpanelen ska ha atgard for att skicka elevregistrering till larare.');

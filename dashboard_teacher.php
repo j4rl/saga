@@ -242,6 +242,10 @@ require_once __DIR__ . '/includes/header.php';
                         <td><?= h(format_date($project['updated_at'])) ?></td>
                         <td>
                             <a href="project_view.php?id=<?= (int) $project['id'] ?>">Visa</a>
+                            <?php if (can_comment_project($project, $user)): ?>
+                                <span aria-hidden="true"> · </span>
+                                <a href="project_view.php?id=<?= (int) $project['id'] ?>#feedback">Ge återkoppling</a>
+                            <?php endif; ?>
                             <?php if (can_unlock_project_submission($project, $user)): ?>
                                 <span aria-hidden="true"> · </span>
                                 <a href="project_edit.php?id=<?= (int) $project['id'] ?>">Hantera</a>
