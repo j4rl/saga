@@ -154,6 +154,14 @@ check(str_contains($authSource, 'password_reset_rate_limited'), 'Rate limit for 
 $registerSource = file_get_contents(__DIR__ . '/../register.php') ?: '';
 check(str_contains($registerSource, 'processing_consent'), 'Registrering ska krava samtycke till personuppgiftsbehandling.');
 
+$searchSource = file_get_contents(__DIR__ . '/../search.php') ?: '';
+check(
+    strpos($searchSource, "h3>Sammanfattning") !== false
+        && strpos($searchSource, "h3>Abstract") !== false
+        && strpos($searchSource, "h3>Sammanfattning") < strpos($searchSource, "h3>Abstract"),
+    'Sokresultat ska visa sammanfattning fore abstract.'
+);
+
 $profileSource = file_get_contents(__DIR__ . '/../profile.php') ?: '';
 check(str_contains($profileSource, 'download_personal_data'), 'Profilsidan ska kunna ladda ned anvandarens data.');
 check(str_contains($profileSource, 'delete_account'), 'Profilsidan ska kunna radera konto.');

@@ -176,7 +176,16 @@ require_once __DIR__ . '/includes/header.php';
                                 </dd>
                             </div>
                         </dl>
-                        <p><?= h(excerpt($project['abstract_text'] ?: $project['summary_text'])) ?></p>
+                        <div class="project-list-texts">
+                            <div>
+                                <h3>Sammanfattning</h3>
+                                <p><?= h(excerpt($project['summary_text'])) ?></p>
+                            </div>
+                            <div>
+                                <h3>Abstract</h3>
+                                <p><?= h(excerpt($project['abstract_text'])) ?></p>
+                            </div>
+                        </div>
                         <div class="project-actions">
                             <a class="button button-secondary" href="project_view.php?id=<?= (int) $project['id'] ?>">Visa</a>
                             <?php if ($viewer && can_edit_project($project, $viewer)): ?>
