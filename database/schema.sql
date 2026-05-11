@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS users (
     approval_status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
     reviewed_by INT UNSIGNED NULL,
     reviewed_at DATETIME NULL,
+    registration_reviewer_id INT UNSIGNED NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_users_school
@@ -48,8 +49,13 @@ CREATE TABLE IF NOT EXISTS users (
         FOREIGN KEY (reviewed_by) REFERENCES users(id)
         ON DELETE SET NULL
         ON UPDATE CASCADE,
+    CONSTRAINT fk_users_registration_reviewer
+        FOREIGN KEY (registration_reviewer_id) REFERENCES users(id)
+        ON DELETE SET NULL
+        ON UPDATE CASCADE,
     INDEX idx_users_role_school (role, school_id),
     INDEX idx_users_approval_school (approval_status, school_id),
+    INDEX idx_users_registration_reviewer (registration_reviewer_id),
     INDEX idx_users_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_swedish_ci;
 

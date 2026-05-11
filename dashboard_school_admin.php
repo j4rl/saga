@@ -115,6 +115,20 @@ if (is_post()) {
             $errors[] = 'Registreringen kunde inte uppdateras.';
         }
     }
+
+    if ($action === 'assign_registration') {
+        $registrationId = (int) ($_POST['user_id'] ?? 0);
+        $teacherId = (int) ($_POST['teacher_id'] ?? 0);
+
+        if ($registrationId <= 0 || $teacherId <= 0) {
+            $errors[] = 'Välj elevregistrering och lärare.';
+        } elseif (assign_registration_to_teacher($conn, $registrationId, $teacherId, $user)) {
+            set_flash('success', 'Elevregistreringen har skickats till läraren för godkännande.');
+            redirect('dashboard_school_admin.php');
+        } else {
+            $errors[] = 'Elevregistreringen kunde inte tilldelas läraren.';
+        }
+    }
 }
 
 $schoolProfile = fetch_school_profile($conn, (int) $user['school_id']);
@@ -125,6 +139,7 @@ foreach (array_keys($themeColors) as $field) {
     }
 }
 $registrations = fetch_registration_requests($conn, (int) $user['school_id']);
+$schoolTeachers = fetch_school_teachers($conn, (int) $user['school_id']);
 $pendingCount = count(array_filter($registrations, static fn (array $row): bool => $row['approval_status'] === 'pending'));
 $pageTitle = 'Skoladministration';
 
@@ -248,6 +263,7 @@ require_once __DIR__ . '/includes/header.php';
                     <th>Namn</th>
                     <th>Roll</th>
                     <th>Status</th>
+                    <th>Tilldelad</th>
                     <th>Registrerad</th>
                     <th></th>
                 </tr>
@@ -264,6 +280,7 @@ require_once __DIR__ . '/includes/header.php';
                                 <?= h(approval_status_label($registration['approval_status'])) ?>
                             </span>
                         </td>
+                        <td><?= h($registration['registration_reviewer_name'] ?? '-') ?></td>
                         <td><?= h(format_date($registration['created_at'])) ?></td>
                         <td>
                             <?php if ($registration['approval_status'] === 'pending'): ?>
@@ -274,6 +291,24 @@ require_once __DIR__ . '/includes/header.php';
                                     <button class="button button-primary" type="submit" name="decision" value="approve">Godkänn</button>
                                     <button class="button button-secondary" type="submit" name="decision" value="reject">Avvisa</button>
                                 </form>
+                                <?php if ($registration['role'] === 'student' && $schoolTeachers): ?>
+                                    <form class="inline-actions" method="post" action="dashboard_school_admin.php">
+                                        <?= csrf_field() ?>
+                                        <input type="hidden" name="action" value="assign_registration">
+                                        <input type="hidden" name="user_id" value="<?= (int) $registration['id'] ?>">
+                                        <select name="teacher_id" aria-label="Välj lärare för <?= h($registration['full_name']) ?>" required>
+                                            <option value="">Välj lärare</option>
+                                            <?php foreach ($schoolTeachers as $teacher): ?>
+                                                <option value="<?= (int) $teacher['id'] ?>" <?= (int) ($registration['registration_reviewer_id'] ?? 0) === (int) $teacher['id'] ? 'selected' : '' ?>>
+                                                    <?= h($teacher['full_name']) ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <button class="button button-secondary" type="submit">Skicka till lärare</button>
+                                    </form>
+                                <?php elseif ($registration['role'] === 'student'): ?>
+                                    <span class="muted">Ingen godkänd lärare finns att tilldela.</span>
+                                <?php endif; ?>
                             <?php else: ?>
                                 <span class="muted"><?= h(format_date($registration['reviewed_at'])) ?></span>
                             <?php endif; ?>

@@ -93,6 +93,9 @@ SAGA har tekniska spärrar mot massutskick av återställningsmail, men e-postle
 - Sådana inlämnade arbeten kan godkännas av den aktiva lärare på samma skola som har flest handledda arbeten i samma kategori. Vid lika antal väljer systemet deterministiskt en lärare.
 - Namnbaserad fallback för handledare gäller bara inom lärarens egen skola.
 - Skoladministratör är begränsad till den egna skolan.
+- Skoladministratör kan godkänna väntande lärare och elever på den egna skolan.
+- Skoladministratör kan tilldela väntande elevregistreringar till en godkänd lärare på samma skola.
+- Lärare kan bara godkänna eller avvisa elevkonton som uttryckligen har tilldelats till dem.
 - Superadmin har systemövergripande behörighet.
 
 ## Elevintegritet och publicering

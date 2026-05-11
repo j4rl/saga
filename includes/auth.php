@@ -42,6 +42,7 @@ function ensure_user_security_columns(mysqli $conn): void
 
     try {
         execute_prepared($conn, 'ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password TINYINT(1) NOT NULL DEFAULT 0 AFTER password_hash');
+        execute_prepared($conn, 'ALTER TABLE users ADD COLUMN IF NOT EXISTS registration_reviewer_id INT UNSIGNED NULL AFTER reviewed_at');
     } catch (Throwable $exception) {
         log_app_error('Kunde inte säkerställa användarnas säkerhetskolumner.', $exception);
     }
@@ -570,9 +571,14 @@ function change_current_user_password(mysqli $conn, array $user, string $current
 
 function fetch_registration_requests(mysqli $conn, ?int $schoolId = null): array
 {
-    $sql = 'SELECT u.id, u.username, u.email, u.full_name, u.role, u.approval_status, u.created_at, u.reviewed_at, s.school_name
+    ensure_user_security_columns($conn);
+
+    $sql = 'SELECT u.id, u.username, u.email, u.full_name, u.role, u.approval_status,
+                   u.created_at, u.reviewed_at, u.registration_reviewer_id,
+                   s.school_name, reviewer.full_name AS registration_reviewer_name
             FROM users u
             INNER JOIN schools s ON s.id = u.school_id
+            LEFT JOIN users reviewer ON reviewer.id = u.registration_reviewer_id
             WHERE u.role IN (\'student\', \'teacher\')';
     $types = '';
     $params = [];
@@ -588,24 +594,126 @@ function fetch_registration_requests(mysqli $conn, ?int $schoolId = null): array
     return fetch_all_prepared($conn, $sql, $types, $params);
 }
 
+function fetch_teacher_registration_requests(mysqli $conn, array $teacher): array
+{
+    ensure_user_security_columns($conn);
+
+    if (($teacher['role'] ?? '') !== 'teacher') {
+        return [];
+    }
+
+    return fetch_all_prepared(
+        $conn,
+        'SELECT id, username, email, full_name, created_at
+         FROM users
+         WHERE role = \'student\'
+           AND approval_status = \'pending\'
+           AND school_id = ?
+           AND registration_reviewer_id = ?
+         ORDER BY created_at ASC, id ASC',
+        'ii',
+        [(int) $teacher['school_id'], (int) $teacher['id']]
+    );
+}
+
+function assign_registration_to_teacher(mysqli $conn, int $studentId, int $teacherId, array $reviewer): bool
+{
+    ensure_user_security_columns($conn);
+
+    if (($reviewer['role'] ?? '') !== 'school_admin') {
+        return false;
+    }
+
+    $teacher = fetch_one_prepared(
+        $conn,
+        'SELECT id, email, full_name
+         FROM users
+         WHERE id = ? AND role = \'teacher\' AND approval_status = \'approved\' AND school_id = ?
+         LIMIT 1',
+        'ii',
+        [$teacherId, (int) $reviewer['school_id']]
+    );
+    if (!$teacher) {
+        return false;
+    }
+
+    $stmt = execute_prepared(
+        $conn,
+        'UPDATE users
+         SET registration_reviewer_id = ?, updated_at = NOW()
+         WHERE id = ? AND role = \'student\' AND approval_status = \'pending\' AND school_id = ?',
+        'iii',
+        [$teacherId, $studentId, (int) $reviewer['school_id']]
+    );
+    if ($stmt->affected_rows < 1) {
+        return false;
+    }
+
+    log_event($conn, (int) $reviewer['id'], 'registration_assign_teacher', 'user', $studentId);
+    if (!empty($teacher['email'])) {
+        notify_user(
+            $conn,
+            (int) $teacher['id'],
+            'Elevregistrering att granska i SAGA',
+            'En elevregistrering har tilldelats dig av skoladministratören. Logga in i SAGA för att godkänna eller avvisa kontot.'
+        );
+    }
+
+    return true;
+}
+
 function review_registration(mysqli $conn, int $userId, string $status, array $reviewer, ?int $schoolId = null): bool
 {
+    ensure_user_security_columns($conn);
+
     if (!in_array($status, ['approved', 'rejected'], true)) {
         return false;
     }
 
-    if (!in_array($reviewer['role'] ?? '', ['school_admin', 'super_admin'], true)) {
+    $reviewerRole = (string) ($reviewer['role'] ?? '');
+    if (!in_array($reviewerRole, ['school_admin', 'super_admin', 'teacher'], true)) {
         return false;
     }
 
-    if (($reviewer['role'] ?? '') === 'school_admin') {
+    if ($reviewerRole === 'school_admin') {
         if ($schoolId === null || (int) $schoolId !== (int) $reviewer['school_id']) {
             return false;
         }
     }
 
+    if ($reviewerRole === 'teacher') {
+        $stmt = execute_prepared(
+            $conn,
+            'UPDATE users
+             SET approval_status = ?, reviewed_by = ?, reviewed_at = NOW(), registration_reviewer_id = NULL
+             WHERE id = ?
+               AND role = \'student\'
+               AND approval_status = \'pending\'
+               AND school_id = ?
+               AND registration_reviewer_id = ?',
+            'siiii',
+            [$status, (int) $reviewer['id'], $userId, (int) $reviewer['school_id'], (int) $reviewer['id']]
+        );
+
+        if ($stmt->affected_rows < 1) {
+            return false;
+        }
+
+        log_event($conn, (int) $reviewer['id'], 'registration_' . $status, 'user', $userId);
+        notify_user(
+            $conn,
+            $userId,
+            $status === 'approved' ? 'Din SAGA-registrering är godkänd' : 'Din SAGA-registrering har avvisats',
+            $status === 'approved'
+                ? 'Ditt konto är nu godkänt och du kan logga in i SAGA.'
+                : 'Din registrering har avvisats. Kontakta skoladministratören om du har frågor.'
+        );
+
+        return true;
+    }
+
     $sql = 'UPDATE users
-            SET approval_status = ?, reviewed_by = ?, reviewed_at = NOW()
+            SET approval_status = ?, reviewed_by = ?, reviewed_at = NOW(), registration_reviewer_id = NULL
             WHERE id = ? AND role IN (\'student\', \'teacher\')';
     $types = 'sii';
     $params = [$status, (int) $reviewer['id'], $userId];

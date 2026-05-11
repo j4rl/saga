@@ -37,9 +37,28 @@ if (is_post()) {
         }
     }
 
+    if ((string) ($_POST['action'] ?? '') === 'review_registration') {
+        $registrationId = (int) ($_POST['user_id'] ?? 0);
+        $decision = (string) ($_POST['decision'] ?? '');
+        $status = match ($decision) {
+            'approve' => 'approved',
+            'reject' => 'rejected',
+            default => '',
+        };
+
+        if ($registrationId <= 0 || $status === '') {
+            set_flash('error', 'Ogiltig elevregistrering.');
+        } elseif (review_registration($conn, $registrationId, $status, $user)) {
+            set_flash('success', $status === 'approved' ? 'Elevregistreringen har godkänts.' : 'Elevregistreringen har avvisats.');
+        } else {
+            set_flash('error', 'Elevregistreringen kunde inte uppdateras.');
+        }
+    }
+
     redirect('dashboard_teacher.php?' . http_build_query($returnParams));
 }
 
+$assignedRegistrations = fetch_teacher_registration_requests($conn, $user);
 $results = teacher_dashboard_projects($conn, $user, $view, $query, $sort, $page, 10);
 $counts = teacher_dashboard_counts($conn, $user);
 $view = $results['view'];
@@ -96,6 +115,55 @@ require_once __DIR__ . '/includes/header.php';
         <a class="button button-secondary" href="teacher_project_list.php?<?= h(http_build_query(['view' => $view, 'q' => $query, 'sort' => $sort, 'format' => 'csv'])) ?>">Exportera CSV</a>
     </div>
 </section>
+
+<?php if ($assignedRegistrations): ?>
+    <section class="section">
+        <div class="section-heading">
+            <div>
+                <h2>Elevregistreringar att godkänna</h2>
+                <p class="muted">Skoladministratören har tilldelat dessa registreringar till dig.</p>
+            </div>
+            <span><?= (int) count($assignedRegistrations) ?> väntar</span>
+        </div>
+
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                <tr>
+                    <th>Namn</th>
+                    <th>Användarnamn</th>
+                    <th>E-post</th>
+                    <th>Registrerad</th>
+                    <th></th>
+                </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($assignedRegistrations as $registration): ?>
+                    <tr>
+                        <td><?= h($registration['full_name']) ?></td>
+                        <td><?= h($registration['username']) ?></td>
+                        <td><?= h($registration['email'] ?? '') ?></td>
+                        <td><?= h(format_date($registration['created_at'])) ?></td>
+                        <td>
+                            <form class="inline-actions" method="post" action="dashboard_teacher.php">
+                                <?= csrf_field() ?>
+                                <input type="hidden" name="action" value="review_registration">
+                                <input type="hidden" name="user_id" value="<?= (int) $registration['id'] ?>">
+                                <input type="hidden" name="view" value="<?= h($view) ?>">
+                                <input type="hidden" name="q" value="<?= h($query) ?>">
+                                <input type="hidden" name="sort" value="<?= h($sort) ?>">
+                                <input type="hidden" name="page" value="<?= (int) $results['page'] ?>">
+                                <button class="button button-primary" type="submit" name="decision" value="approve">Godkänn</button>
+                                <button class="button button-secondary" type="submit" name="decision" value="reject">Avvisa</button>
+                            </form>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </section>
+<?php endif; ?>
 
 <section class="section">
     <div class="section-heading">

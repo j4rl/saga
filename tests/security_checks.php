@@ -106,9 +106,19 @@ $projectEditSource = file_get_contents(__DIR__ . '/../project_edit.php') ?: '';
 check(str_contains($projectEditSource, 'supervisor_name_manual'), 'Elever ska kunna ange tidigare handledares namn manuellt.');
 
 $authSource = file_get_contents(__DIR__ . '/../includes/auth.php') ?: '';
+check(str_contains($authSource, 'function assign_registration_to_teacher'), 'Skoladmin ska kunna tilldela elevregistreringar till larare.');
+check(str_contains($authSource, 'function fetch_teacher_registration_requests'), 'Larare ska kunna hamta tilldelade elevregistreringar.');
+check(str_contains($authSource, "registration_reviewer_id = ?"), 'Larare ska bara kunna godkanna tilldelade elevregistreringar.');
 check(str_contains($authSource, 'function password_reset_is_rate_limited'), 'Losenordsaterstallning ska ha separat rate limiting.');
 check(str_contains($authSource, 'password_reset_record_request($conn, $identifier);'), 'Losenordsaterstallning ska registrera forfragan innan anvandaruppslag ger effekt.');
 check(str_contains($authSource, 'password_reset_rate_limited'), 'Rate limit for losenordsaterstallning ska loggas neutralt.');
+
+$schoolAdminSource = file_get_contents(__DIR__ . '/../dashboard_school_admin.php') ?: '';
+check(str_contains($schoolAdminSource, 'assign_registration'), 'Skoladminpanelen ska ha atgard for att skicka elevregistrering till larare.');
+check(str_contains($schoolAdminSource, 'fetch_school_teachers'), 'Skoladminpanelen ska lista godkanda larare for tilldelning.');
+
+$teacherDashboardSource = file_get_contents(__DIR__ . '/../dashboard_teacher.php') ?: '';
+check(str_contains($teacherDashboardSource, 'Elevregistreringar att godkänna'), 'Lararpanelen ska visa tilldelade elevregistreringar.');
 
 $configSource = file_get_contents(__DIR__ . '/../config/app.php') ?: '';
 check(str_contains($configSource, 'SAGA_APP_BASE_URL'), 'APP_BASE_URL ska kunna sattas via miljo.');

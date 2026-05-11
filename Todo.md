@@ -49,6 +49,11 @@ Senast genomgånget: 2026-05-11.
   - Vid lika antal kategoriarbeten väljer systemet deterministiskt en lärare.
   - Publik visning kräver fortfarande slutlig inlämning och godkännande.
 
+- [x] Låt skoladmin delegera elevregistreringar till lärare.
+  - Skoladmin kan fortsatt godkänna både lärare och elever direkt.
+  - Väntande elevregistreringar kan tilldelas en godkänd lärare på samma skola.
+  - Lärare ser tilldelade elevregistreringar i lärarpanelen och kan godkänna eller avvisa dem.
+
 - [x] Skapa en riktig migreringsstrategi för databasen.
   - `tools/migrate.php` kör versionshanterade SQL-filer från `database/migrations/`.
   - `schema_migrations` spårar applicerade migreringar och stödjer tabellprefix via `{{prefix}}`.

@@ -20,6 +20,7 @@ SAGA stödjer hela flödet från registrering till arkivering:
 
 - Elever och lärare kan registrera sig.
 - Skoladministratör eller superadmin godkänner konton innan de används.
+- Skoladministratör kan skicka väntande elevregistreringar till en lärare på skolan för godkännande.
 - Elever kan skapa, redigera och lämna in gymnasiearbeten.
 - Inlämnade arbeten låses så att innehållet inte ändras i efterhand utan upplåsning.
 - Handledare kan följa och ge återkoppling på sina elevers arbeten.
@@ -72,6 +73,7 @@ SAGA började som en **MVP**, en första användbar version med kärnfunktioner.
 
 - rollbaserad behörighet,
 - godkännande av nya konton,
+- tilldelning av elevregistreringar till lärare,
 - elevstyrd publicering,
 - slutlig inlämning med låsning,
 - återkoppling på projektsidan,
