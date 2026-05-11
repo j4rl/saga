@@ -1,62 +1,94 @@
 # SAGA
 
-SAGA står för **Svenskt Arkiv för GymnasieArbeten**. Systemet är byggt för att skolor ska kunna samla in, hantera, söka och visa gymnasiearbeten på ett kontrollerat sätt.
+> **Svenskt Arkiv för GymnasieArbeten**
+>
+> Ett rollstyrt system för inlämning, hantering, arkivering och publicering av gymnasiearbeten.
 
-Syftet är att ge elever en tydlig plats för sitt arbete, ge lärare stöd i handledning och uppföljning, och samtidigt göra färdiga arbeten sökbara när eleven själv har valt att de får vara publika.
+SAGA hjälper skolor att samla in och hantera gymnasiearbeten på ett kontrollerat sätt. Elever får en tydlig plats för sitt arbete, lärare får stöd i handledning och uppföljning, och färdiga arbeten kan göras sökbara när eleven själv väljer att de får vara publika.
+
+## Innehåll
+
+- [Snabb överblick](#snabb-överblick)
+- [Varför SAGA finns](#varför-saga-finns)
+- [Vad systemet gör](#vad-systemet-gör)
+- [Roller och åtkomst](#roller-och-åtkomst)
+- [Arbetsflöde](#arbetsflöde)
+- [Säkerhet och integritet](#säkerhet-och-integritet)
+- [Nuvarande funktioner](#nuvarande-funktioner)
+- [Inför bred produktion](#inför-bred-produktion)
+- [Teknisk översikt](#teknisk-översikt)
+- [Installation och drift](#installation-och-drift)
+- [Begrepp](#begrepp)
+- [Relaterad dokumentation](#relaterad-dokumentation)
+
+## Snabb överblick
+
+| Område | Beskrivning |
+| --- | --- |
+| Syfte | Arkivera, hantera och söka gymnasiearbeten |
+| Målgrupper | Elever, lärare, skoladministratörer och superadmin |
+| Publicering | Eleven styr själv om ett slutligt inlämnat arbete ska vara publikt |
+| Teknik | PHP, MySQL, HTML, CSS och JavaScript |
+| Verifiering | `.\tools\verify.ps1` kör PHP-syntaxkontroll och säkerhetstester |
+| Säkerhet | Rollbaserad åtkomst, CSRF-skydd, filvalidering, auditlogg och inloggningsbegränsning |
 
 ## Varför SAGA finns
 
-Gymnasiearbeten innehåller ofta både elevens egna resonemang och ibland personliga eller känsliga uppgifter. Ett arkiv för sådana arbeten behöver därför balansera tre saker:
+Gymnasiearbeten innehåller ofta elevens egna resonemang och kan ibland innehålla personliga eller känsliga uppgifter. Ett arkiv för sådana arbeten behöver därför balansera tre behov:
 
-- **Tillgänglighet:** färdiga arbeten ska kunna hittas och användas som inspiration.
-- **Kontroll:** rätt person ska kunna se, ändra, lämna in, låsa upp eller administrera rätt sak.
-- **Integritet:** elevens material ska inte visas bredare än nödvändigt och ska inte publiceras utan elevens val.
+| Behov | Vad det betyder i SAGA |
+| --- | --- |
+| **Tillgänglighet** | Färdiga publika arbeten ska kunna hittas och användas som inspiration. |
+| **Kontroll** | Rätt person ska kunna se, ändra, lämna in, låsa upp eller administrera rätt sak. |
+| **Integritet** | Elevens material ska inte visas bredare än nödvändigt och ska inte publiceras utan elevens val. |
 
-SAGA är därför inte bara ett uppladdningsformulär. Det är ett rollstyrt system där publicering, inlämning, handledning, administration och sökning hålls isär.
+SAGA är därför mer än ett uppladdningsformulär. Systemet håller isär publicering, inlämning, handledning, administration och sökning.
 
 ## Vad systemet gör
 
 SAGA stödjer hela flödet från registrering till arkivering:
 
-- Elever och lärare kan registrera sig.
-- Skoladministratör eller superadmin godkänner konton innan de används.
-- Skoladministratör kan skicka väntande elevregistreringar till en lärare på skolan för godkännande.
-- Elever kan skapa, redigera och lämna in gymnasiearbeten.
-- Inlämnade arbeten låses så att innehållet inte ändras i efterhand utan upplåsning.
-- Handledare kan följa och ge återkoppling på sina elevers arbeten.
-- Lärare kan se relevanta arbeten inom sin skola.
-- Om en tidigare handledare inte längre arbetar på skolan kan eleven ange handledarens namn manuellt. Godkännandet läggs då på den aktiva lärare som har flest handledda arbeten i samma kategori.
-- Eleven styr själv om ett slutligt inlämnat arbete ska vara publikt.
-- Publika arbeten kan sökas av besökare.
-- Superadmin kan hantera skolor, användare, kategorier, driftkontroll och auditlogg.
+1. Elever och lärare registrerar sig.
+2. Skoladministratör eller superadmin godkänner konton innan de används.
+3. Skoladministratör kan tilldela väntande elevregistreringar till en lärare på skolan.
+4. Eleven skapar, redigerar och lämnar in sitt gymnasiearbete.
+5. Inlämnade arbeten låses så att innehållet inte ändras i efterhand utan upplåsning.
+6. Handledare följer arbetet och kan ge återkoppling på projektsidan.
+7. Eleven väljer själv om ett slutligt inlämnat arbete ska vara publikt.
+8. Publika arbeten blir sökbara för besökare.
+9. Superadmin hanterar skolor, användare, kategorier, driftkontroll och auditlogg.
 
-## Viktiga principer
+> Ett arbete kan vara färdigt och inlämnat utan att vara publikt. SAGA skiljer därför tydligt på **inlämning** och **publicering**.
 
-### Eleven äger publiceringsvalet
+## Roller och åtkomst
 
-Ett arbete kan vara färdigt och inlämnat utan att vara publikt. SAGA skiljer därför på **inlämning** och **publicering**.
+| Roll | Kan göra |
+| --- | --- |
+| **Besökare** | Söka och läsa publika arbeten. |
+| **Elev** | Skapa, redigera, lämna in och styra publicering av sitt eget arbete. |
+| **Lärare** | Följa handledda arbeten, ge återkoppling och se relevanta inlämnade arbeten på sin skola. |
+| **Skoladministratör** | Hantera konton, skolinställningar och elevregistreringar för sin skola. |
+| **Superadmin** | Hantera systemövergripande administration, skolor, kategorier, driftkontroll och auditlogg. |
 
-Det är viktigt eftersom en elev kan behöva lämna in ett arbete för bedömning utan att samtidigt vilja göra det synligt för alla. Ett arbete kan inte vara publikt förrän slutlig inlämning är ikryssad. Lärare kan låsa upp handledda arbeten vid behov, men de kan inte göra elevens arbete publikt åt eleven.
+Om en tidigare handledare inte längre arbetar på skolan kan eleven ange handledarens namn manuellt. Godkännandet läggs då på den aktiva lärare som har flest handledda arbeten i samma kategori.
 
-### Roller begränsar åtkomsten
+## Arbetsflöde
 
-Alla användare ska inte kunna se allt. SAGA använder roller för att hålla ansvar och åtkomst separerade:
+```text
+Registrering
+    -> konto godkänns
+    -> arbete skapas
+    -> handledning och återkoppling
+    -> slutlig inlämning
+    -> eventuell publicering
+    -> sökbart arkiv
+```
 
-- **Besökare** ser endast publika arbeten.
-- **Elev** hanterar sitt eget arbete.
-- **Lärare** ser egna handledda arbeten och relevanta inlämnade arbeten på sin skola.
-- **Skoladministratör** hanterar konton och skolinställningar för sin skola.
-- **Superadmin** hanterar systemövergripande administration.
+## Säkerhet och integritet
 
-Detta minskar risken för att elevutkast, interna kommentarer eller skoladministration visas för fel person.
+SAGA försöker undvika att samla eller visa mer information än nödvändigt. Loggar finns för spårbarhet, men ska inte bli en onödig kopia av personuppgifter. Därför minimeras exempelvis innehåll i e-postloggar och IP-adresser anonymiseras i auditloggen.
 
-### Integritet går före bekvämlighet
-
-SAGA försöker undvika att samla eller visa mer information än nödvändigt. Loggar finns för spårbarhet, men de ska inte bli en onödig kopia av personuppgifter. Därför minimeras exempelvis innehåll i e-postloggar och IP-adresser anonymiseras i auditloggen.
-
-### Säkerhet är en del av produkten
-
-Eftersom SAGA hanterar elever, skolor och uppladdade dokument behöver säkerhet finnas i grundflödena. Systemet har därför skydd för bland annat:
+Systemet har skydd för bland annat:
 
 - inloggningsattacker,
 - obehörig åtkomst,
@@ -67,37 +99,28 @@ Eftersom SAGA hanterar elever, skolor och uppladdade dokument behöver säkerhet
 
 En mer detaljerad säkerhetsanalys finns i [security.md](security.md).
 
-## Vad som ingår i nuvarande version
+## Nuvarande funktioner
 
-SAGA började som en **MVP**, en första användbar version med kärnfunktioner. Den nuvarande lösningen har därefter förstärkts med flera funktioner som behövs för praktisk användning i skolmiljö:
+| Område | Funktioner |
+| --- | --- |
+| Konton och roller | Rollbaserad behörighet, godkännande av nya konton och tilldelning av elevregistreringar till lärare. |
+| Projekt | Elevstyrd publicering, slutlig inlämning med låsning och återkoppling på projektsidan. |
+| Filer | PDF-uppladdning, PDF-historik och behörighetskontrollerad PDF-visning. |
+| Sökning | Sökning bland publika arbeten och kategoribaserad struktur. |
+| Säkerhet | Lösenordsåterställning, inloggningsbegränsning, sanerad bas-URL och säkrare e-postheaders. |
+| Drift | Auditlogg, driftkontroll samt gallring av äldre loggar och filversioner. |
 
-- rollbaserad behörighet,
-- godkännande av nya konton,
-- tilldelning av elevregistreringar till lärare,
-- elevstyrd publicering,
-- slutlig inlämning med låsning,
-- återkoppling på projektsidan,
-- PDF-uppladdning och PDF-historik,
-- behörighetskontrollerad PDF-visning,
-- sökning och kategorier,
-- lösenordsåterställning,
-- inloggningsbegränsning,
-- sanerad bas-URL för återställningslänkar och e-postheaders,
-- auditlogg,
-- driftkontroll,
-- gallring av äldre loggar och filversioner.
+## Inför bred produktion
 
-## Vad som återstår inför bred produktion
+Innan systemet används brett bör drift och förvaltning ta ställning till följande:
 
-SAGA är starkare än en enkel MVP, men vissa beslut hör hemma i drift och förvaltning innan systemet används brett:
-
-- E-post bör skickas via SMTP med TLS i stället för PHP:s enklare `mail()`-funktion.
-- Produktion bör sätta en fast `APP_BASE_URL`, så lösenordsåterställning inte behöver bygga länkar från aktuell request.
-- Uppladdade filer bör helst lagras utanför webbroten om servermiljön tillåter det.
-- PDF-filer bör virusskannas eller saneras i miljöer där många okända filer laddas upp.
-- Skolan bör ta ställning till om publika arbeten ska granskas innan de blir synliga.
-- Egna skolteman räknas fram från två valda färger och kontrastkontrolleras, men bör fortfarande granskas visuellt med skolans logotyp och faktiska innehåll.
-- Backup, gallring och incidentrutiner bör dokumenteras för den miljö där SAGA körs.
+- [ ] Skicka e-post via SMTP med TLS i stället för PHP:s enklare `mail()`-funktion.
+- [ ] Sätt en fast `APP_BASE_URL` i produktion.
+- [ ] Lagra uppladdade filer utanför webbroten om servermiljön tillåter det.
+- [ ] Lägg till virusskanning eller PDF-sanering i miljöer där många okända filer laddas upp.
+- [ ] Bestäm om publika arbeten ska granskas innan de blir synliga.
+- [ ] Granska egna skolteman visuellt med skolans logotyp och faktiska innehåll.
+- [ ] Dokumentera backup, gallring och incidentrutiner för den miljö där SAGA körs.
 
 ## Teknisk översikt
 
@@ -105,139 +128,79 @@ SAGA är en webbapplikation byggd i PHP med MySQL som databas. Gränssnittet bes
 
 Den tekniska lösningen är vald för att vara enkel att installera på vanliga webbhotell och lokal XAMPP-liknande miljö, men ändå ha tydliga säkerhetsgränser för roller, filer och sessioner.
 
-Viktiga delar:
+| Del | Ansvar |
+| --- | --- |
+| **PHP** | Inloggning, behörighet, formulär, filer och sidor. |
+| **MySQL** | Användare, skolor, projekt, återkoppling, loggar och inställningar. |
+| **PDF-filer** | Sparas med slumpade filnamn och hämtas genom behörighetskontroller. |
+| **Auditlogg** | Gör viktiga händelser spårbara. |
+| **Migreringar** | Uppdaterar databasen kontrollerat när systemet utvecklas. |
+| **Verifiering** | Körs med `.\tools\verify.ps1`. |
 
-- **PHP** hanterar inloggning, behörighet, formulär, filer och sidor.
-- **MySQL** lagrar användare, skolor, projekt, återkoppling, loggar och inställningar.
-- **PDF-filer** sparas med slumpade filnamn och hämtas genom behörighetskontroller.
-- **Auditlogg** används för att kunna följa viktiga händelser.
-- **Migreringar** används för att kunna uppdatera databasen när systemet utvecklas.
-- **Verifiering** kan köras med `.\tools\verify.ps1`, som gör PHP-syntaxkontroll och kör säkerhetstesterna.
+## Installation och drift
 
-## Driftkonfiguration
+### Lokal installation
 
-Efter installation skapas `config/installed.php` lokalt med databasuppgifter. Den filen ska inte checkas in och bör skyddas med filrättigheter.
+1. Lägg projektet i en PHP-kompatibel webbmiljö, till exempel XAMPP.
+2. Skapa en MySQL-databas för SAGA.
+3. Öppna `index.php` i webbläsaren.
+4. Fyll i installerarens databasuppgifter, tabellprefix och första superadmin-konto.
+5. När installationen är klar skapas `config/installed.php`.
 
-Installeraren har ett frivilligt fält för publik adress. För produktion rekommenderas att sätta en fast bas-URL, antingen i `config/installed.php`:
+> `config/installed.php` innehåller lokala databasuppgifter. Den ska inte checkas in och bör skyddas med filrättigheter.
+
+### Uppdateringar
+
+Kör migreringar efter uppdateringar som innehåller nya databasändringar:
+
+```powershell
+php tools/migrate.php
+```
+
+Kör verifieringen vid ändringar:
+
+```powershell
+.\tools\verify.ps1
+```
+
+### Bas-URL
+
+För produktion rekommenderas en fast publik adress. Den kan sättas i `config/installed.php`:
 
 ```php
 define('APP_BASE_URL', 'https://exempel.se/saga');
 ```
 
-eller via miljövariabeln `SAGA_APP_BASE_URL` eller `APP_BASE_URL`.
+Alternativt kan den sättas via miljövariabeln `SAGA_APP_BASE_URL` eller `APP_BASE_URL`.
 
 Om `APP_BASE_URL` saknas använder SAGA en validerad `Host`-header för återställningslänkar. Det fungerar i lokal utveckling, men en fast bas-URL är tydligare och säkrare bakom proxy, lastbalanserare eller CDN.
 
+### Driftkontroll
+
+Öppna `health.php` för att kontrollera installation, filskydd, uppladdningsmapp och grundläggande produktionskrav.
+
 ## Begrepp
 
-### MVP
-
-**MVP** betyder *Minimum Viable Product*. Det är den minsta version av en produkt som är tillräckligt användbar för att testas i verkligheten.
-
-I SAGA betyder MVP inte att kvalitet eller säkerhet saknas. Det betyder att systemet först byggdes runt det viktigaste behovet: att elever ska kunna lämna in och skolor kunna arkivera gymnasiearbeten. Därefter kan systemet byggas ut med mer administration, bättre driftstöd och fler skydd.
-
-### Frontend
-
-**Frontend** är den del användaren möter i webbläsaren: sidor, formulär, knappar, färger, responsiv layout och interaktioner.
-
-I SAGA är frontend viktigt eftersom elever och lärare måste förstå när ett arbete är utkast, inlämnat eller publikt. Otydliga gränssnitt kan leda till felaktiga beslut, särskilt vid publicering.
-
-### Backend
-
-**Backend** är serverdelen bakom gränssnittet. Den kontrollerar exempelvis vem som är inloggad, vilka rättigheter personen har, vilka projekt som får visas och hur filer får laddas upp.
-
-I SAGA är backend särskilt viktig eftersom säkerhet inte kan bygga på vad som bara syns eller döljs i webbläsaren. Servern måste alltid kontrollera behörigheten.
-
-### Databas
-
-En **databas** är strukturerad lagring av information. SAGA använder databasen för skolor, användare, projekt, kategorier, inlämningar, återkoppling och loggar.
-
-Databasen behövs för att systemet ska kunna hålla ordning på vem som äger vilket arbete, vilken skola användaren tillhör och vilka åtgärder som har gjorts.
-
-### Rollbaserad åtkomst
-
-**Rollbaserad åtkomst** betyder att användarens roll avgör vad personen får göra. En elev, lärare, skoladministratör och superadmin har olika ansvar och därför olika rättigheter.
-
-Det är centralt i SAGA eftersom skolmiljön innehåller flera nivåer av ansvar. En lärare behöver kunna handleda, men ska inte automatiskt kunna administrera hela systemet eller publicera elevens arbete.
-
-### Publicering
-
-**Publicering** betyder att ett arbete blir synligt för andra än de personer som behöver se det för handledning eller administration.
-
-I SAGA kräver publicering att arbetet först är slutligt inlämnat. Publicering är ändå separerad från inlämning: ett inlämnat arbete kan vara privat, men ett utkast kan inte vara publikt.
-
-### CSRF
-
-**CSRF** betyder *Cross-Site Request Forgery*. Det är en attack där en extern sida försöker få en redan inloggad användare att råka skicka en ändring till systemet.
-
-SAGA skyddar skrivande formulär med CSRF-token för att minska risken att någon ändrar uppgifter, loggar ut eller utför adminåtgärder via en manipulerad länk eller sida.
-
-### XSS
-
-**XSS** betyder *Cross-Site Scripting*. Det är när någon försöker få skadlig kod att köras i en annan användares webbläsare, ofta genom textfält eller uppladdat innehåll.
-
-SAGA hanterar detta genom att användarinmatad text ska visas som text, inte som körbar kod.
-
-### SQL-injektion
-
-**SQL-injektion** är när någon försöker påverka databasfrågor genom att skriva in kod i exempelvis formulär eller sökfält.
-
-Det är en allvarlig risk eftersom databasen innehåller användare, projekt och behörighetsinformation. SAGA använder säkrare databasanrop där inmatade värden hålls separerade från SQL-koden.
-
-### Session
-
-En **session** är serverns sätt att komma ihåg att en användare är inloggad när personen går mellan sidor.
-
-Sessioner behöver skyddas eftersom ett kapat eller kvarlämnat inloggat konto på en delad dator kan ge åtkomst till elev- eller administratörsdata.
-
-### Cookie
-
-En **cookie** är en liten uppgift som webbläsaren sparar för en webbplats. Den kan till exempel användas för att koppla webbläsaren till rätt session.
-
-Cookies behöver hanteras varsamt eftersom de kan påverka både integritet och inloggningssäkerhet.
-
-### Rate limiting
-
-**Rate limiting** betyder att systemet begränsar hur många försök som får göras under en viss tid.
-
-I SAGA används det för inloggning, så att någon inte lika enkelt kan testa stora mängder lösenord.
-
-### Auditlogg
-
-En **auditlogg** är en spårbar logg över viktiga händelser, till exempel inloggningar, kontoändringar och administrativa åtgärder.
-
-Auditlogg behövs för ansvar och felsökning, men den måste samtidigt begränsas så att den inte sparar mer persondata än nödvändigt.
-
-### Retention
-
-**Retention** betyder hur länge information sparas innan den bör gallras.
-
-I SAGA är retention viktigt för att loggar och äldre filversioner inte ska ligga kvar längre än de behövs för drift, säkerhet och spårbarhet.
-
-### Migration
-
-En **migration** är en kontrollerad förändring av databasen när systemet uppdateras.
-
-Migrationer behövs för att installationer ska kunna uppgraderas utan att varje databas ändras manuellt på olika sätt.
-
-### SMTP
-
-**SMTP** är ett standardiserat sätt att skicka e-post via en e-postserver.
-
-För SAGA är SMTP viktigt eftersom notifieringar och lösenordsåterställning behöver vara tillförlitliga, spårbara och skickas från en kontrollerad avsändare.
-
-### TLS
-
-**TLS** är kryptering för trafik mellan system, till exempel mellan webbplatsen och en e-postserver eller mellan användarens webbläsare och SAGA.
-
-TLS behövs för att minska risken att inloggningsuppgifter, återställningslänkar eller annan känslig information kan läsas på vägen.
-
-### CSP och HSTS
-
-**CSP** står för *Content Security Policy* och hjälper webbläsaren att begränsa vilka resurser en sida får ladda.  
-**HSTS** säger åt webbläsaren att fortsätta använda HTTPS för webbplatsen.
-
-Båda är exempel på webbläsarskydd som minskar konsekvenserna av vissa fel eller attacker.
+| Begrepp | Kort förklaring |
+| --- | --- |
+| **Frontend** | Den del användaren möter i webbläsaren: sidor, formulär, knappar, färger, responsiv layout och interaktioner. |
+| **Backend** | Serverdelen som kontrollerar inloggning, behörighet, projektvisning och filuppladdning. |
+| **Databas** | Strukturerad lagring av skolor, användare, projekt, kategorier, inlämningar, återkoppling och loggar. |
+| **Rollbaserad åtkomst** | Användarens roll avgör vad personen får se och göra. |
+| **Publicering** | Ett arbete blir synligt för andra än de personer som behöver se det för handledning eller administration. |
+| **CSRF** | En attack där en extern sida försöker få en redan inloggad användare att skicka en ändring till systemet. |
+| **XSS** | Ett försök att få skadlig kod att köras i en annan användares webbläsare. |
+| **SQL-injektion** | Ett försök att påverka databasfrågor genom inmatning i exempelvis formulär eller sökfält. |
+| **Session** | Serverns sätt att komma ihåg att en användare är inloggad mellan sidvisningar. |
+| **Cookie** | En uppgift som webbläsaren sparar för en webbplats, ofta för att koppla webbläsaren till rätt session. |
+| **Rate limiting** | Begränsar hur många försök som får göras under en viss tid, till exempel vid inloggning. |
+| **Auditlogg** | En spårbar logg över viktiga händelser, till exempel inloggningar och administrativa åtgärder. |
+| **Retention** | Hur länge information sparas innan den bör gallras. |
+| **Migration** | En kontrollerad förändring av databasen när systemet uppdateras. |
+| **SMTP** | Ett standardiserat sätt att skicka e-post via en e-postserver. |
+| **TLS** | Kryptering för trafik mellan system, till exempel mellan webbläsaren och SAGA. |
+| **CSP** | Content Security Policy, ett webbläsarskydd som begränsar vilka resurser en sida får ladda. |
+| **HSTS** | Ett webbläsarskydd som säger åt webbläsaren att fortsätta använda HTTPS för webbplatsen. |
 
 ## Relaterad dokumentation
 

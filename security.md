@@ -334,4 +334,4 @@ Följande förbättringar bör prioriteras innan bred produktion:
 
 SAGA har skydd för de viktigaste riskerna i en skolmiljö: rollbaserad åtkomst, elevens kontroll över publicering, teknisk filvalidering, CSRF-skydd, serverbaserad inloggningsbegränsning, sessions-timeout, auditloggning och personuppgiftsminimering.
 
-Systemet är därmed betydligt starkare än en enkel MVP, men produktion kräver fortfarande driftbeslut kring SMTP, serverregler för uppladdningar, backup, gallring och eventuell manuell granskning av publika arbeten.
+Produktion kräver fortfarande driftbeslut kring SMTP, serverregler för uppladdningar, backup, gallring och eventuell manuell granskning av publika arbeten.
