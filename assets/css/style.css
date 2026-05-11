@@ -797,6 +797,10 @@ textarea:focus {
     list-style: none;
 }
 
+.project-list-item-no-status summary {
+    grid-template-columns: 24px minmax(220px, 1fr) minmax(220px, auto);
+}
+
 .project-list-item summary::-webkit-details-marker {
     display: none;
 }
