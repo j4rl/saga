@@ -120,6 +120,11 @@ $categoriesSource = file_get_contents(__DIR__ . '/../categories.php') ?: '';
 check(str_contains($categoriesSource, 'name="action" value="create"'), 'Superadmin ska kunna skapa kategorier.');
 check(str_contains($categoriesSource, 'name="action" value="delete"'), 'Superadmin ska kunna ta bort tomma kategorier.');
 
+$adminDashboardSource = file_get_contents(__DIR__ . '/../dashboard_admin.php') ?: '';
+check(str_contains($adminDashboardSource, 'name="action" value="create_user"'), 'Superadmin ska kunna skapa användare.');
+check(str_contains($adminDashboardSource, 'name="action" value="update_user"'), 'Superadmin ska kunna redigera användare.');
+check(str_contains($adminDashboardSource, 'name="action" value="delete_user"'), 'Superadmin ska kunna radera användare.');
+
 $projectsSource = file_get_contents(__DIR__ . '/../includes/projects.php') ?: '';
 check(str_contains($projectsSource, 'function can_view_project_feedback'), 'Aterkoppling ska ha separat behorighetskontroll.');
 $searchFunctionStart = strpos($projectsSource, 'function search_projects');
@@ -147,12 +152,16 @@ check(str_contains($authSource, 'function fetch_teacher_registration_requests'),
 check(str_contains($authSource, "registration_reviewer_id = ?"), 'Larare ska bara kunna godkanna tilldelade elevregistreringar.');
 check(str_contains($authSource, 'function build_personal_data_export'), 'Anvandare ska kunna exportera sina personuppgifter.');
 check(str_contains($authSource, 'function delete_current_user_account'), 'Anvandare ska kunna radera konto och persondata.');
+check(str_contains($authSource, 'function delete_user_account_by_admin'), 'Superadmin ska kunna radera användarkonton.');
+check(str_contains($authSource, 'function promote_teacher_to_school_admin'), 'Skoladmin och superadmin ska kunna göra lärare till skoladmin.');
 check(str_contains($authSource, 'function password_reset_is_rate_limited'), 'Losenordsaterstallning ska ha separat rate limiting.');
 check(str_contains($authSource, 'password_reset_record_request($conn, $identifier);'), 'Losenordsaterstallning ska registrera forfragan innan anvandaruppslag ger effekt.');
 check(str_contains($authSource, 'password_reset_rate_limited'), 'Rate limit for losenordsaterstallning ska loggas neutralt.');
 
 $registerSource = file_get_contents(__DIR__ . '/../register.php') ?: '';
 check(str_contains($registerSource, 'processing_consent'), 'Registrering ska krava samtycke till personuppgiftsbehandling.');
+check(str_contains($registerSource, "\\'pending\\', NOW()"), 'Registrering ska satta status till pending som SQL-literal.');
+check(!str_contains($registerSource, '[$username, $email, $passwordHash, $fullName, $role, $schoolId, \'pending\''), 'Registrering ska inte binda pending som parameter.');
 
 $searchSource = file_get_contents(__DIR__ . '/../search.php') ?: '';
 check(
@@ -170,6 +179,7 @@ $schoolAdminSource = file_get_contents(__DIR__ . '/../dashboard_school_admin.php
 check(str_contains($schoolAdminSource, 'assign_registration'), 'Skoladminpanelen ska ha atgard for att skicka elevregistrering till larare.');
 check(str_contains($schoolAdminSource, 'fetch_school_teachers'), 'Skoladminpanelen ska lista godkanda larare for tilldelning.');
 check(str_contains($schoolAdminSource, 'require_pdf_for_submission'), 'Skoladmin ska kunna aktivera krav pa PDF vid slutlig inlamning.');
+check(str_contains($schoolAdminSource, 'promote_teacher'), 'Skoladminpanelen ska kunna göra godkända lärare till skoladmin.');
 
 $teacherDashboardSource = file_get_contents(__DIR__ . '/../dashboard_teacher.php') ?: '';
 check(str_contains($teacherDashboardSource, 'Elevregistreringar att godkänna'), 'Lararpanelen ska visa tilldelade elevregistreringar.');

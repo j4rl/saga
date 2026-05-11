@@ -59,6 +59,16 @@ Senast genomgånget: 2026-05-11.
   - Väntande elevregistreringar kan tilldelas en godkänd lärare på samma skola.
   - Lärare ser tilldelade elevregistreringar i lärarpanelen och kan godkänna eller avvisa dem.
 
+- [ ] Lägg till import av lärare till en skola.
+  - Skoladmin och superadmin ska kunna importera lärarkonton från CSV, Excel, urklipp eller PDF.
+  - Importen bör förhandsgranskas innan konton skapas och visa valideringsfel per rad.
+  - Matcha helst på e-post eller användarnamn för att undvika dubbletter.
+
+- [ ] Stöd skolans egna inloggningslösningar.
+  - En skola ska kunna välja OAuth eller Active Directory som inloggning om den vill.
+  - Koppla externa identiteter till SAGA-konton och skolans roller utan att tappa lokala adminflöden.
+  - Behåll lokal inloggning som fallback för superadmin och skolor som inte aktiverar extern inloggning.
+
 - [x] Skapa en riktig migreringsstrategi för databasen.
   - `tools/migrate.php` kör versionshanterade SQL-filer från `database/migrations/`.
   - `schema_migrations` spårar applicerade migreringar och stödjer tabellprefix via `{{prefix}}`.

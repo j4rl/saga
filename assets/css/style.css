@@ -741,6 +741,12 @@ textarea:focus {
     border-color: var(--line);
 }
 
+.button-danger {
+    background: var(--danger-bg);
+    color: var(--danger-text);
+    border-color: color-mix(in srgb, var(--danger-text) 28%, var(--danger-bg));
+}
+
 .button-full {
     width: 100%;
 }
@@ -1388,6 +1394,20 @@ textarea:focus {
     background: color-mix(in srgb, var(--surface) 92%, var(--bg));
 }
 
+.user-delete-form {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) minmax(160px, 220px) auto;
+    gap: 12px;
+    align-items: end;
+    padding: 16px;
+    border-top: 1px solid var(--line);
+    background: color-mix(in srgb, var(--danger-bg) 18%, var(--surface));
+}
+
+.user-delete-form p {
+    margin: 4px 0 0;
+}
+
 .user-facts {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -1673,6 +1693,7 @@ textarea:focus {
     .project-list-item summary,
     .user-facts,
     .user-edit-grid,
+    .user-delete-form,
     .settings-layout,
     .theme-builder {
         grid-template-columns: 1fr;

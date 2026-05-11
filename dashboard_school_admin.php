@@ -132,6 +132,18 @@ if (is_post()) {
             $errors[] = 'Elevregistreringen kunde inte tilldelas läraren.';
         }
     }
+
+    if ($action === 'promote_teacher') {
+        $teacherId = (int) ($_POST['user_id'] ?? 0);
+        $result = promote_teacher_to_school_admin($conn, $teacherId, $user);
+
+        if ($result['ok']) {
+            set_flash('success', 'Läraren har gjorts till skoladministratör.');
+            redirect('dashboard_school_admin.php');
+        }
+
+        $errors[] = $result['error'];
+    }
 }
 
 $schoolProfile = fetch_school_profile($conn, (int) $user['school_id']);
@@ -143,6 +155,7 @@ foreach (array_keys($themeColors) as $field) {
 }
 $registrations = fetch_registration_requests($conn, (int) $user['school_id']);
 $schoolTeachers = fetch_school_teachers($conn, (int) $user['school_id']);
+$schoolStaff = fetch_school_staff($conn, (int) $user['school_id']);
 $pendingCount = count(array_filter($registrations, static fn (array $row): bool => $row['approval_status'] === 'pending'));
 $pageTitle = 'Skoladministration';
 
@@ -255,6 +268,56 @@ require_once __DIR__ . '/includes/header.php';
             <button class="button button-primary" type="submit">Spara inställningar</button>
         </div>
     </form>
+</section>
+
+<section class="section">
+    <div class="section-heading">
+        <div>
+            <h2>Personal och skoladministratörer</h2>
+            <p class="muted">Godkända lärare kan ges skoladminbehörighet vid behov.</p>
+        </div>
+        <span><?= (int) count($schoolStaff) ?> personer</span>
+    </div>
+
+    <?php if (!$schoolStaff): ?>
+        <p class="empty-state">Det finns inga godkända lärare eller skoladministratörer på skolan ännu.</p>
+    <?php else: ?>
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                <tr>
+                    <th>Namn</th>
+                    <th>Användarnamn</th>
+                    <th>Roll</th>
+                    <th>E-post</th>
+                    <th></th>
+                </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($schoolStaff as $staff): ?>
+                    <tr>
+                        <td><?= h($staff['full_name']) ?></td>
+                        <td><?= h($staff['username']) ?></td>
+                        <td><?= h(role_label($staff['role'])) ?></td>
+                        <td><?= h($staff['email'] ?? '-') ?></td>
+                        <td>
+                            <?php if ($staff['role'] === 'teacher'): ?>
+                                <form class="inline-actions" method="post" action="dashboard_school_admin.php">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="action" value="promote_teacher">
+                                    <input type="hidden" name="user_id" value="<?= (int) $staff['id'] ?>">
+                                    <button class="button button-secondary button-small" type="submit">Gör till skoladmin</button>
+                                </form>
+                            <?php else: ?>
+                                <span class="muted">Skoladmin</span>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
 </section>
 
 <section class="section">

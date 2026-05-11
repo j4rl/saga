@@ -72,9 +72,9 @@ if (is_post()) {
                 $conn,
                 'INSERT INTO users
                  (username, email, password_hash, full_name, role, school_id, approval_status, privacy_consent_at, privacy_consent_version)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?)',
-                'ssssssis',
-                [$username, $email, $passwordHash, $fullName, $role, $schoolId, 'pending', privacy_consent_version()]
+                 VALUES (?, ?, ?, ?, ?, ?, \'pending\', NOW(), ?)',
+                'sssssis',
+                [$username, $email, $passwordHash, $fullName, $role, $schoolId, privacy_consent_version()]
             );
 
             log_event($conn, null, 'registration_create', 'user', (int) $stmt->insert_id);

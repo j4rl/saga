@@ -741,6 +741,107 @@ function collect_owned_project_files(mysqli $conn, int $userId): array
     return array_values(array_unique(array_filter($files)));
 }
 
+function collect_account_deletion_files(mysqli $conn, int $userId): array
+{
+    $files = collect_owned_project_files($conn, $userId);
+
+    $versions = fetch_all_prepared(
+        $conn,
+        'SELECT uv.stored_filename
+         FROM upload_versions uv
+         LEFT JOIN projects active_project
+            ON active_project.pdf_filename = uv.stored_filename
+           AND active_project.user_id <> ?
+         LEFT JOIN upload_versions other_version
+            ON other_version.stored_filename = uv.stored_filename
+           AND other_version.uploaded_by <> ?
+         WHERE uv.uploaded_by = ?
+           AND active_project.id IS NULL
+           AND other_version.id IS NULL',
+        'iii',
+        [$userId, $userId, $userId]
+    );
+    foreach ($versions as $version) {
+        if (!empty($version['stored_filename'])) {
+            $files[] = basename((string) $version['stored_filename']);
+        }
+    }
+
+    return array_values(array_unique(array_filter($files)));
+}
+
+function delete_user_account_by_admin(mysqli $conn, int $userId, array $actor, string $confirmation): array
+{
+    if (($actor['role'] ?? '') !== 'super_admin') {
+        return ['ok' => false, 'error' => 'Du har inte behörighet att radera användare.'];
+    }
+
+    if ($confirmation !== 'RADERA') {
+        return ['ok' => false, 'error' => 'Skriv RADERA för att bekräfta raderingen.'];
+    }
+
+    if ($userId <= 0) {
+        return ['ok' => false, 'error' => 'Ogiltig användare.'];
+    }
+
+    if ($userId === (int) $actor['id']) {
+        return ['ok' => false, 'error' => 'Radera ditt eget konto via profilsidan.'];
+    }
+
+    $row = fetch_one_prepared($conn, 'SELECT role, approval_status, email, full_name FROM users WHERE id = ? LIMIT 1', 'i', [$userId]);
+    if (!$row) {
+        return ['ok' => false, 'error' => 'Användaren kunde inte hittas.'];
+    }
+
+    if (($row['role'] ?? '') === 'super_admin' && ($row['approval_status'] ?? '') === 'approved') {
+        $superAdminCount = fetch_one_prepared($conn, 'SELECT COUNT(*) AS total FROM users WHERE role = \'super_admin\' AND approval_status = \'approved\'');
+        if ((int) ($superAdminCount['total'] ?? 0) <= 1) {
+            return ['ok' => false, 'error' => 'Den sista godkända superadminen kan inte raderas.'];
+        }
+    }
+
+    $ownedFiles = collect_account_deletion_files($conn, $userId);
+    $email = (string) ($row['email'] ?? '');
+    $fullName = (string) ($row['full_name'] ?? '');
+
+    try {
+        $conn->begin_transaction();
+
+        execute_prepared($conn, 'DELETE FROM upload_versions WHERE uploaded_by = ?', 'i', [$userId]);
+        execute_prepared($conn, 'DELETE FROM projects WHERE user_id = ?', 'i', [$userId]);
+        execute_prepared($conn, 'DELETE FROM project_feedback WHERE user_id = ?', 'i', [$userId]);
+        execute_prepared($conn, 'DELETE FROM password_resets WHERE user_id = ?', 'i', [$userId]);
+        execute_prepared($conn, 'UPDATE audit_log SET user_id = NULL, entity_id = NULL WHERE user_id = ? OR (entity_type = \'user\' AND entity_id = ?)', 'ii', [$userId, $userId]);
+
+        if ($email !== '') {
+            execute_prepared($conn, 'DELETE FROM email_notifications WHERE recipient_email = ?', 's', [$email]);
+        }
+        if ($fullName !== '') {
+            $like = '%' . $fullName . '%';
+            execute_prepared($conn, 'DELETE FROM email_notifications WHERE subject LIKE ? OR body LIKE ?', 'ss', [$like, $like]);
+        }
+
+        execute_prepared($conn, 'DELETE FROM users WHERE id = ?', 'i', [$userId]);
+        log_event($conn, (int) $actor['id'], 'user_delete', 'user', $userId);
+
+        $conn->commit();
+    } catch (Throwable $exception) {
+        $conn->rollback();
+        log_app_error('Kunde inte radera användare från superadminpanelen.', $exception);
+
+        return ['ok' => false, 'error' => 'Användaren kunde inte raderas.'];
+    }
+
+    foreach ($ownedFiles as $filename) {
+        $path = UPLOAD_DIR . DIRECTORY_SEPARATOR . $filename;
+        if (is_file($path)) {
+            @unlink($path);
+        }
+    }
+
+    return ['ok' => true];
+}
+
 function delete_current_user_account(mysqli $conn, array $user, string $currentPassword, string $confirmation): array
 {
     $userId = (int) $user['id'];
@@ -760,7 +861,7 @@ function delete_current_user_account(mysqli $conn, array $user, string $currentP
         }
     }
 
-    $ownedFiles = collect_owned_project_files($conn, $userId);
+    $ownedFiles = collect_account_deletion_files($conn, $userId);
     $email = (string) ($row['email'] ?? '');
     $fullName = (string) ($row['full_name'] ?? '');
 
@@ -798,6 +899,62 @@ function delete_current_user_account(mysqli $conn, array $user, string $currentP
             @unlink($path);
         }
     }
+
+    return ['ok' => true];
+}
+
+function fetch_school_staff(mysqli $conn, int $schoolId): array
+{
+    return fetch_all_prepared(
+        $conn,
+        'SELECT id, username, email, full_name, role, approval_status, created_at
+         FROM users
+         WHERE school_id = ?
+           AND role IN (\'teacher\', \'school_admin\')
+           AND approval_status = \'approved\'
+         ORDER BY FIELD(role, \'school_admin\', \'teacher\'), full_name ASC, id ASC',
+        'i',
+        [$schoolId]
+    );
+}
+
+function promote_teacher_to_school_admin(mysqli $conn, int $teacherId, array $actor): array
+{
+    $actorRole = (string) ($actor['role'] ?? '');
+    if (!in_array($actorRole, ['school_admin', 'super_admin'], true)) {
+        return ['ok' => false, 'error' => 'Du har inte behörighet att göra lärare till skoladministratörer.'];
+    }
+
+    $teacher = fetch_one_prepared(
+        $conn,
+        'SELECT id, school_id
+         FROM users
+         WHERE id = ? AND role = \'teacher\' AND approval_status = \'approved\'
+         LIMIT 1',
+        'i',
+        [$teacherId]
+    );
+    if (!$teacher) {
+        return ['ok' => false, 'error' => 'Läraren kunde inte hittas eller är inte godkänd.'];
+    }
+
+    if ($actorRole === 'school_admin' && (int) $teacher['school_id'] !== (int) $actor['school_id']) {
+        return ['ok' => false, 'error' => 'Du kan bara hantera lärare på din egen skola.'];
+    }
+
+    $stmt = execute_prepared(
+        $conn,
+        'UPDATE users
+         SET role = \'school_admin\', reviewed_by = ?, reviewed_at = NOW(), updated_at = NOW()
+         WHERE id = ? AND role = \'teacher\' AND approval_status = \'approved\'',
+        'ii',
+        [(int) $actor['id'], $teacherId]
+    );
+    if ($stmt->affected_rows < 1) {
+        return ['ok' => false, 'error' => 'Läraren kunde inte uppdateras.'];
+    }
+
+    log_event($conn, (int) $actor['id'], 'user_promote_school_admin', 'user', $teacherId);
 
     return ['ok' => true];
 }

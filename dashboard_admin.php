@@ -134,6 +134,7 @@ if (is_post()) {
 
     if ($action === 'update_user') {
         $userId = (int) ($_POST['user_id'] ?? 0);
+        $username = trim((string) ($_POST['username'] ?? ''));
         $email = normalize_email((string) ($_POST['email'] ?? ''));
         $fullName = trim((string) ($_POST['full_name'] ?? ''));
         $role = (string) ($_POST['role'] ?? 'student');
@@ -143,6 +144,9 @@ if (is_post()) {
 
         if ($userId <= 0) {
             $errors[] = 'Ogiltig användare.';
+        }
+        if ($username === '' || mb_strlen($username) > 80) {
+            $errors[] = 'Användarnamn är obligatoriskt och får vara högst 80 tecken.';
         }
         if ($fullName === '' || mb_strlen($fullName) > 160) {
             $errors[] = 'Namn är obligatoriskt och får vara högst 160 tecken.';
@@ -180,21 +184,21 @@ if (is_post()) {
                     execute_prepared(
                         $conn,
                         'UPDATE users
-                         SET email = ?, full_name = ?, role = ?, school_id = ?, approval_status = ?,
+                         SET username = ?, email = ?, full_name = ?, role = ?, school_id = ?, approval_status = ?,
                              password_hash = ?, must_change_password = 1, reviewed_by = ?, reviewed_at = NOW(), updated_at = NOW()
                          WHERE id = ?',
-                        'sssissii',
-                        [$email, $fullName, $role, $schoolId, $status, password_hash($newPassword, PASSWORD_DEFAULT), (int) $currentUser['id'], $userId]
+                        'ssssissii',
+                        [$username, $email, $fullName, $role, $schoolId, $status, password_hash($newPassword, PASSWORD_DEFAULT), (int) $currentUser['id'], $userId]
                     );
                 } else {
                     execute_prepared(
                         $conn,
                         'UPDATE users
-                         SET email = ?, full_name = ?, role = ?, school_id = ?, approval_status = ?,
+                         SET username = ?, email = ?, full_name = ?, role = ?, school_id = ?, approval_status = ?,
                              reviewed_by = ?, reviewed_at = NOW(), updated_at = NOW()
                          WHERE id = ?',
-                        'sssisii',
-                        [$email, $fullName, $role, $schoolId, $status, (int) $currentUser['id'], $userId]
+                        'ssssisii',
+                        [$username, $email, $fullName, $role, $schoolId, $status, (int) $currentUser['id'], $userId]
                     );
                 }
 
@@ -202,9 +206,22 @@ if (is_post()) {
                 set_flash('success', 'Användaren har uppdaterats.');
                 redirect('dashboard_admin.php');
             } catch (mysqli_sql_exception $exception) {
-                $errors[] = 'Kunde inte uppdatera användaren.';
+                $errors[] = 'Kunde inte uppdatera användaren. Kontrollera att användarnamnet är unikt.';
             }
         }
+    }
+
+    if ($action === 'delete_user') {
+        $userId = (int) ($_POST['user_id'] ?? 0);
+        $confirmation = trim((string) ($_POST['delete_confirmation'] ?? ''));
+        $result = delete_user_account_by_admin($conn, $userId, $currentUser, $confirmation);
+
+        if ($result['ok']) {
+            set_flash('success', 'Användaren har raderats.');
+            redirect('dashboard_admin.php');
+        }
+
+        $errors[] = $result['error'];
     }
 
     if ($action === 'update_school') {
@@ -457,16 +474,20 @@ require_once __DIR__ . '/includes/header.php';
 
                         <dl class="user-facts">
                             <div>
-                                <dt>Användarnamn</dt>
-                                <dd><?= h($row['username']) ?></dd>
-                            </div>
-                            <div>
                                 <dt>Skapad</dt>
                                 <dd><?= h(format_date($row['created_at'])) ?></dd>
+                            </div>
+                            <div>
+                                <dt>ID</dt>
+                                <dd><?= (int) $row['id'] ?></dd>
                             </div>
                         </dl>
 
                         <div class="user-edit-grid">
+                            <div class="field">
+                                <label for="user_username_<?= (int) $row['id'] ?>">Användarnamn</label>
+                                <input id="user_username_<?= (int) $row['id'] ?>" name="username" type="text" maxlength="80" value="<?= h($row['username']) ?>" required>
+                            </div>
                             <div class="field">
                                 <label for="user_email_<?= (int) $row['id'] ?>">E-post</label>
                                 <input id="user_email_<?= (int) $row['id'] ?>" name="email" type="email" maxlength="190" value="<?= h($row['email']) ?>" placeholder="e-post">
@@ -511,6 +532,23 @@ require_once __DIR__ . '/includes/header.php';
                             <span class="muted">Ändrat lösenord markeras som tillfälligt och måste bytas vid nästa inloggning.</span>
                             <button class="button button-primary" type="submit">Spara användare</button>
                         </div>
+                    </form>
+
+                    <form class="user-delete-form" method="post" action="dashboard_admin.php">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="action" value="delete_user">
+                        <input type="hidden" name="user_id" value="<?= (int) $row['id'] ?>">
+                        <div>
+                            <strong>Radera användare</strong>
+                            <p class="muted">Tar bort kontot, elevens arbeten och personkopplade notifieringar.</p>
+                        </div>
+                        <?php if ((int) $row['id'] === (int) $currentUser['id']): ?>
+                            <span class="muted">Radera ditt eget konto via profilsidan.</span>
+                        <?php else: ?>
+                            <label class="sr-only" for="delete_confirmation_<?= (int) $row['id'] ?>">Bekräfta radering</label>
+                            <input id="delete_confirmation_<?= (int) $row['id'] ?>" name="delete_confirmation" type="text" placeholder="Skriv RADERA" autocomplete="off">
+                            <button class="button button-danger" type="submit">Radera</button>
+                        <?php endif; ?>
                     </form>
                 </details>
             <?php endforeach; ?>
