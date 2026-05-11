@@ -1052,6 +1052,31 @@ textarea:focus {
     margin-top: 3px;
 }
 
+.approval-form {
+    margin: 0;
+}
+
+.approval-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 28px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.approval-toggle input {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+}
+
+.button-small {
+    min-height: 30px;
+    padding: 5px 9px;
+    font-size: 0.86rem;
+}
+
 .admin-grid {
     display: grid;
     grid-template-columns: minmax(260px, 0.8fr) minmax(320px, 1.2fr);

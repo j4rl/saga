@@ -9,6 +9,37 @@ $view = (string) ($_GET['view'] ?? 'own');
 $query = trim((string) ($_GET['q'] ?? ''));
 $sort = (string) ($_GET['sort'] ?? 'updated_desc');
 $page = max(1, (int) ($_GET['page'] ?? 1));
+
+if (is_post()) {
+    verify_csrf();
+
+    $returnParams = [
+        'view' => (string) ($_POST['view'] ?? $view),
+        'q' => trim((string) ($_POST['q'] ?? $query)),
+        'sort' => (string) ($_POST['sort'] ?? $sort),
+        'page' => max(1, (int) ($_POST['page'] ?? $page)),
+    ];
+
+    if ((string) ($_POST['action'] ?? '') === 'set_approval') {
+        $projectId = (int) ($_POST['project_id'] ?? 0);
+        $project = $projectId > 0 ? get_project_by_id($conn, $projectId) : null;
+
+        if ($project) {
+            $result = set_project_approval($conn, $project, $user, isset($_POST['is_approved']));
+            set_flash(
+                $result['ok'] ? 'success' : 'error',
+                $result['ok']
+                    ? (!empty($result['approved']) ? 'Arbetet har godkänts.' : 'Godkännandet har tagits bort.')
+                    : (string) ($result['error'] ?? 'Godkännandet kunde inte sparas.')
+            );
+        } else {
+            set_flash('error', 'Arbetet kunde inte hittas.');
+        }
+    }
+
+    redirect('dashboard_teacher.php?' . http_build_query($returnParams));
+}
+
 $results = teacher_dashboard_projects($conn, $user, $view, $query, $sort, $page, 10);
 $counts = teacher_dashboard_counts($conn, $user);
 $view = $results['view'];
@@ -85,6 +116,7 @@ require_once __DIR__ . '/includes/header.php';
                     <th>Kategori</th>
                     <th>Skola</th>
                     <th>Status</th>
+                    <th>Godkänt</th>
                     <th>Inlämnad</th>
                     <th>Uppdaterad</th>
                     <th></th>
@@ -107,6 +139,36 @@ require_once __DIR__ . '/includes/header.php';
                             <span class="status-pill <?= (int) $project['is_submitted'] === 1 ? 'status-submitted' : 'status-draft' ?>">
                                 <?= (int) $project['is_submitted'] === 1 ? 'Inlämnat' : 'Utkast' ?>
                             </span>
+                        </td>
+                        <td>
+                            <?php if (can_approve_project($project, $user)): ?>
+                                <form class="approval-form" method="post" action="dashboard_teacher.php">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="action" value="set_approval">
+                                    <input type="hidden" name="project_id" value="<?= (int) $project['id'] ?>">
+                                    <input type="hidden" name="view" value="<?= h($view) ?>">
+                                    <input type="hidden" name="q" value="<?= h($query) ?>">
+                                    <input type="hidden" name="sort" value="<?= h($sort) ?>">
+                                    <input type="hidden" name="page" value="<?= (int) $results['page'] ?>">
+                                    <label class="approval-toggle">
+                                        <input
+                                            type="checkbox"
+                                            name="is_approved"
+                                            value="1"
+                                            <?= (int) ($project['is_approved'] ?? 0) === 1 ? 'checked' : '' ?>
+                                            onchange="this.form.submit()"
+                                        >
+                                        <span><?= (int) ($project['is_approved'] ?? 0) === 1 ? 'Godkänt' : 'Godkänn' ?></span>
+                                    </label>
+                                    <noscript><button class="button button-secondary button-small" type="submit">Spara</button></noscript>
+                                </form>
+                            <?php elseif ((int) $project['is_submitted'] === 1 && (int) ($project['is_approved'] ?? 0) === 1): ?>
+                                <span class="status-pill status-approved">Godkänt</span>
+                            <?php elseif ((int) $project['is_submitted'] === 1): ?>
+                                <span class="status-pill status-pending">Väntar</span>
+                            <?php else: ?>
+                                <span class="muted">-</span>
+                            <?php endif; ?>
                         </td>
                         <td><?= (int) $project['is_submitted'] === 1 ? h(format_date($project['submitted_at'])) : '-' ?></td>
                         <td><?= h(format_date($project['updated_at'])) ?></td>

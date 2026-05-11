@@ -59,13 +59,18 @@ require_once __DIR__ . '/includes/header.php';
             <?php endif; ?>
         </div>
         <div class="status-stack">
-            <?php $isEffectivelyPublic = (int) $project['is_public'] === 1 && (int) $project['is_submitted'] === 1; ?>
+            <?php $isEffectivelyPublic = project_is_publicly_visible($project); ?>
             <span class="status-pill <?= $isEffectivelyPublic ? 'status-public' : 'status-private' ?>">
                 <?= $isEffectivelyPublic ? 'Publik' : 'Inte publik' ?>
             </span>
             <span class="status-pill <?= (int) $project['is_submitted'] === 1 ? 'status-submitted' : 'status-draft' ?>">
                 <?= (int) $project['is_submitted'] === 1 ? 'Inlämnat' : 'Utkast' ?>
             </span>
+            <?php if ((int) $project['is_submitted'] === 1): ?>
+                <span class="status-pill <?= (int) ($project['is_approved'] ?? 0) === 1 ? 'status-approved' : 'status-pending' ?>">
+                    <?= (int) ($project['is_approved'] ?? 0) === 1 ? 'Godkänt' : 'Väntar på godkännande' ?>
+                </span>
+            <?php endif; ?>
         </div>
     </header>
 
@@ -94,6 +99,18 @@ require_once __DIR__ . '/includes/header.php';
             <div>
                 <dt>Inlämnad</dt>
                 <dd><?= (int) $project['is_submitted'] === 1 ? h(format_date($project['submitted_at'])) : 'Nej' ?></dd>
+            </div>
+            <div>
+                <dt>Godkänd</dt>
+                <dd>
+                    <?php if ((int) ($project['is_approved'] ?? 0) === 1): ?>
+                        <?= h(format_date($project['approved_at'])) ?>
+                    <?php elseif ((int) $project['is_submitted'] === 1): ?>
+                        Väntar på handledare
+                    <?php else: ?>
+                        Nej
+                    <?php endif; ?>
+                </dd>
             </div>
             <div>
                 <dt>PDF</dt>

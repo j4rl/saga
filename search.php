@@ -131,7 +131,7 @@ require_once __DIR__ . '/includes/header.php';
                                 <p class="subtitle"><?= h($project['subtitle']) ?></p>
                             <?php endif; ?>
                         </div>
-                        <?php $isEffectivelyPublic = (int) $project['is_public'] === 1 && (int) $project['is_submitted'] === 1; ?>
+                        <?php $isEffectivelyPublic = project_is_publicly_visible($project); ?>
                         <span class="status-pill <?= $isEffectivelyPublic ? 'status-public' : 'status-private' ?>">
                             <?= $isEffectivelyPublic ? 'Publik' : 'Intern' ?>
                         </span>

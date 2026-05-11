@@ -24,7 +24,10 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
         if ($isSubmitted === 0) {
             execute_prepared(
                 $conn,
-                'UPDATE projects SET is_public = 0, is_submitted = 0, submitted_at = NULL, updated_at = NOW() WHERE id = ? AND is_submitted = 1',
+                'UPDATE projects
+                 SET is_public = 0, is_submitted = 0, is_approved = 0,
+                     submitted_at = NULL, approved_at = NULL, approved_by = NULL, updated_at = NOW()
+                 WHERE id = ? AND is_submitted = 1',
                 'i',
                 [$projectId]
             );
@@ -189,6 +192,17 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
                         $submittedAt,
                         $projectId,
                     ]
+                );
+            }
+
+            if ($isSubmitted === 0) {
+                execute_prepared(
+                    $conn,
+                    'UPDATE projects
+                     SET is_approved = 0, approved_at = NULL, approved_by = NULL
+                     WHERE id = ?',
+                    'i',
+                    [$projectId]
                 );
             }
 

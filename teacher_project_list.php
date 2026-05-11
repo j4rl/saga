@@ -23,7 +23,7 @@ if ($format === 'csv') {
 
     $output = fopen('php://output', 'wb');
     fwrite($output, "\xEF\xBB\xBF");
-    fputcsv($output, ['Elev', 'Titel', 'Undertitel', 'Kategori', 'Handledare', 'Status', 'Inlämnad'], ';');
+    fputcsv($output, ['Elev', 'Titel', 'Undertitel', 'Kategori', 'Handledare', 'Status', 'Godkänt', 'Inlämnad'], ';');
 
     foreach ($results['rows'] as $project) {
         fputcsv(
@@ -35,6 +35,7 @@ if ($format === 'csv') {
                 $project['category_name'],
                 $project['supervisor_name'],
                 (int) $project['is_submitted'] === 1 ? 'Inlämnat' : 'Utkast',
+                (int) ($project['is_approved'] ?? 0) === 1 ? 'Ja' : 'Nej',
                 (int) $project['is_submitted'] === 1 ? format_date($project['submitted_at']) : '',
             ],
             ';'
@@ -81,13 +82,14 @@ if ($format === 'html' && isset($_GET['download'])) {
             <th>Kategori</th>
             <th>Handledare</th>
             <th>Status</th>
+            <th>Godkänt</th>
             <th>Inlämnad</th>
         </tr>
         </thead>
         <tbody>
         <?php if (!$results['rows']): ?>
             <tr>
-                <td colspan="6">Inga arbeten hittades.</td>
+                <td colspan="7">Inga arbeten hittades.</td>
             </tr>
         <?php endif; ?>
         <?php foreach ($results['rows'] as $project): ?>
@@ -102,6 +104,7 @@ if ($format === 'html' && isset($_GET['download'])) {
                 <td><?= h($project['category_name']) ?></td>
                 <td><?= h($project['supervisor_name']) ?></td>
                 <td><?= (int) $project['is_submitted'] === 1 ? 'Inlämnat' : 'Utkast' ?></td>
+                <td><?= (int) ($project['is_approved'] ?? 0) === 1 ? 'Ja' : 'Nej' ?></td>
                 <td><?= (int) $project['is_submitted'] === 1 ? h(format_date($project['submitted_at'])) : '-' ?></td>
             </tr>
         <?php endforeach; ?>

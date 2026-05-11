@@ -39,7 +39,7 @@ function get_project_for_student(mysqli $conn, int $userId): ?array
 
 function can_view_project(array $project, ?array $viewer): bool
 {
-    if ((int) $project['is_public'] === 1 && (int) $project['is_submitted'] === 1) {
+    if (project_is_publicly_visible($project)) {
         return true;
     }
 
@@ -68,6 +68,13 @@ function can_view_project(array $project, ?array $viewer): bool
     }
 
     return false;
+}
+
+function project_is_publicly_visible(array $project): bool
+{
+    return (int) ($project['is_public'] ?? 0) === 1
+        && (int) ($project['is_submitted'] ?? 0) === 1
+        && (int) ($project['is_approved'] ?? 0) === 1;
 }
 
 function teacher_is_project_supervisor(array $project, array $teacher): bool
@@ -113,6 +120,46 @@ function can_unlock_project_submission(array $project, array $viewer): bool
         && (int) $project['is_submitted'] === 1;
 }
 
+function can_approve_project(array $project, array $viewer): bool
+{
+    return $viewer['role'] === 'teacher'
+        && teacher_is_project_supervisor($project, $viewer)
+        && (int) $project['is_submitted'] === 1;
+}
+
+function set_project_approval(mysqli $conn, array $project, array $teacher, bool $approved): array
+{
+    if (!can_approve_project($project, $teacher)) {
+        return ['ok' => false, 'error' => 'Du kan bara godkänna slutligt inlämnade arbeten där du är handledare.'];
+    }
+
+    if ($approved) {
+        execute_prepared(
+            $conn,
+            'UPDATE projects
+             SET is_approved = 1, approved_at = NOW(), approved_by = ?, updated_at = NOW()
+             WHERE id = ? AND is_submitted = 1',
+            'ii',
+            [(int) $teacher['id'], (int) $project['id']]
+        );
+        log_event($conn, (int) $teacher['id'], 'project_approve', 'project', (int) $project['id']);
+
+        return ['ok' => true, 'approved' => true];
+    }
+
+    execute_prepared(
+        $conn,
+        'UPDATE projects
+         SET is_approved = 0, approved_at = NULL, approved_by = NULL, updated_at = NOW()
+         WHERE id = ?',
+        'i',
+        [(int) $project['id']]
+    );
+    log_event($conn, (int) $teacher['id'], 'project_unapprove', 'project', (int) $project['id']);
+
+    return ['ok' => true, 'approved' => false];
+}
+
 function fetch_project_versions(mysqli $conn, int $projectId): array
 {
     return fetch_all_prepared(
@@ -144,7 +191,7 @@ function get_project_version(mysqli $conn, int $versionId): ?array
 function add_visibility_sql(?array $viewer, array &$where, string &$types, array &$params, bool $teacherLimitedSearch = true): void
 {
     if (!$viewer) {
-        $where[] = '(p.is_public = 1 AND p.is_submitted = 1)';
+        $where[] = '(p.is_public = 1 AND p.is_submitted = 1 AND p.is_approved = 1)';
         return;
     }
 
@@ -170,7 +217,7 @@ function add_visibility_sql(?array $viewer, array &$where, string &$types, array
         return;
     }
 
-    $where[] = '(p.is_public = 1 AND p.is_submitted = 1)';
+    $where[] = '(p.is_public = 1 AND p.is_submitted = 1 AND p.is_approved = 1)';
 }
 
 function normalize_search_text(string $text): string
@@ -553,7 +600,7 @@ function teacher_dashboard_projects(mysqli $conn, array $teacher, string $view, 
         'title_asc' => 'p.title ASC, p.id DESC',
         'student_asc' => 'u.full_name ASC, p.title ASC, p.id DESC',
         'submitted_desc' => 'p.submitted_at DESC, p.updated_at DESC, p.id DESC',
-        'status_desc' => 'p.is_submitted DESC, p.updated_at DESC, p.id DESC',
+        'status_desc' => 'p.is_submitted DESC, p.is_approved ASC, p.updated_at DESC, p.id DESC',
         default => 'p.updated_at DESC, p.id DESC',
     };
 
@@ -638,7 +685,7 @@ function latest_public_projects(mysqli $conn, int $limit = 5): array
          INNER JOIN users u ON u.id = p.user_id
          INNER JOIN categories c ON c.id = p.category_id
          LEFT JOIN users su ON su.id = p.supervisor_user_id
-         WHERE p.is_public = 1 AND p.is_submitted = 1
+         WHERE p.is_public = 1 AND p.is_submitted = 1 AND p.is_approved = 1
          ORDER BY p.updated_at DESC, p.id DESC
          LIMIT ?',
         'i',

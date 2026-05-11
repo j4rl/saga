@@ -1,0 +1,27 @@
+Testanvandare for SAGA
+======================
+
+Alla konton nedan finns i exempeldata. Losenord for elevkontona ar samma som for standardkontot "elev".
+
+Superadmin
+- Superadmin: admin
+
+Skoladministration
+- Skoladministrator Norra: skoladmin
+- Skoladministrator Sodra: skoladmin_sodra
+
+Larare
+- Exempel Larare, Norra Gymnasiet: larare
+- Sodra Handledare, Sodra Gymnasiet: larare_sodra
+
+Elever
+- Exempel Elev, Norra Gymnasiet: elev
+- Maja Andersson, Norra Gymnasiet: elev1
+- Leo Karlsson, Norra Gymnasiet: elev2
+- Busig Elev, Norra Gymnasiet: elev3
+- Sara Nguyen, Norra Gymnasiet: elev4
+- Omar Hassan, Norra Gymnasiet: elev5
+- Elin Berg, Norra Gymnasiet: elev6
+- Nora Lind, Sodra Gymnasiet: elev7
+- Adam Svensson, Sodra Gymnasiet: elev8
+- Lina Persson, Sodra Gymnasiet: elev9

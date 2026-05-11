@@ -92,7 +92,10 @@ function installer_create_schema(mysqli $conn, string $prefix, string $schoolNam
             pdf_original_name VARCHAR(180) NULL,
             is_public TINYINT(1) NOT NULL DEFAULT 0,
             is_submitted TINYINT(1) NOT NULL DEFAULT 0,
+            is_approved TINYINT(1) NOT NULL DEFAULT 0,
             submitted_at DATETIME NULL,
+            approved_at DATETIME NULL,
+            approved_by INT UNSIGNED NULL,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             CONSTRAINT fk_{$prefix}projects_user
@@ -111,10 +114,16 @@ function installer_create_schema(mysqli $conn, string $prefix, string $schoolNam
                 FOREIGN KEY (supervisor_user_id) REFERENCES $users(id)
                 ON DELETE SET NULL
                 ON UPDATE CASCADE,
+            CONSTRAINT fk_{$prefix}projects_approved_by
+                FOREIGN KEY (approved_by) REFERENCES $users(id)
+                ON DELETE SET NULL
+                ON UPDATE CASCADE,
             UNIQUE KEY uq_projects_user (user_id),
             INDEX idx_projects_supervisor_user (supervisor_user_id),
+            INDEX idx_projects_approved_by (approved_by),
             INDEX idx_projects_category (category_id),
             INDEX idx_projects_school_public (school_id, is_public),
+            INDEX idx_projects_public_approved (is_public, is_submitted, is_approved),
             INDEX idx_projects_updated (updated_at),
             INDEX idx_projects_title (title),
             FULLTEXT KEY ft_projects_search (title, subtitle, supervisor, abstract_text, summary_text)
