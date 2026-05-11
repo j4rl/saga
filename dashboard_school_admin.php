@@ -14,6 +14,7 @@ if (is_post()) {
 
     if ($action === 'update_school_profile') {
         $customEnabled = isset($_POST['theme_custom_enabled']) ? 1 : 0;
+        $requirePdfForSubmission = isset($_POST['require_pdf_for_submission']) ? 1 : 0;
         $seedColors = default_theme_seed_colors();
 
         foreach (array_keys($seedColors) as $field) {
@@ -50,8 +51,9 @@ if (is_post()) {
                     $customEnabled ? $lightTheme['theme_bg'] : null,
                     $customEnabled ? $lightTheme['theme_surface'] : null,
                     $customEnabled ? $lightTheme['theme_text'] : null,
+                    $requirePdfForSubmission,
                 ];
-                $types = 'isssss';
+                $types = 'isssssi';
                 $logoSql = '';
 
                 if ($storedLogo) {
@@ -69,7 +71,8 @@ if (is_post()) {
                     $conn,
                     "UPDATE schools
                      SET theme_mode = 'auto', theme_custom_enabled = ?, theme_primary = ?, theme_secondary = ?,
-                         theme_bg = ?, theme_surface = ?, theme_text = ?$logoSql
+                         theme_bg = ?, theme_surface = ?, theme_text = ?,
+                         require_pdf_for_submission = ?$logoSql
                      WHERE id = ?",
                     $types,
                     $params
@@ -83,7 +86,7 @@ if (is_post()) {
                 }
 
                 log_event($conn, (int) $user['id'], 'school_profile_update', 'school', (int) $user['school_id']);
-                set_flash('success', 'Skolans utseende har sparats.');
+                set_flash('success', 'Skolans inställningar har sparats.');
                 redirect('dashboard_school_admin.php');
             } catch (Throwable $exception) {
                 if ($storedLogo) {
@@ -92,7 +95,7 @@ if (is_post()) {
                         unlink($newPath);
                     }
                 }
-                $errors[] = 'Skolans utseende kunde inte sparas.';
+                $errors[] = 'Skolans inställningar kunde inte sparas.';
             }
         }
     }
@@ -169,8 +172,8 @@ require_once __DIR__ . '/includes/header.php';
 <section class="section">
     <div class="section-heading">
         <div>
-            <h2>Skolans utseende</h2>
-            <p class="muted">Färger och logotyp för <?= h($user['school_name']) ?>.</p>
+            <h2>Skolans inställningar</h2>
+            <p class="muted">Färger, logotyp och inlämningsregler för <?= h($user['school_name']) ?>.</p>
         </div>
     </div>
 
@@ -220,6 +223,15 @@ require_once __DIR__ . '/includes/header.php';
             </div>
         </div>
 
+        <div class="settings-panel">
+            <h3>Inlämningsregler</h3>
+            <label class="check-option">
+                <input type="checkbox" name="require_pdf_for_submission" value="1" <?= (int) ($schoolProfile['require_pdf_for_submission'] ?? 0) === 1 ? 'checked' : '' ?>>
+                <span>Kräv uppladdad PDF vid slutlig inlämning</span>
+            </label>
+            <p class="field-help">När regeln är aktiv kan elever inte göra en slutlig inlämning om arbetet saknar PDF. Regeln är avstängd som standard.</p>
+        </div>
+
         <div class="settings-panel theme-preview" data-theme-preview>
             <h3>Förhandsvisning</h3>
             <div class="preview-brand">
@@ -240,7 +252,7 @@ require_once __DIR__ . '/includes/header.php';
         </div>
 
         <div class="settings-actions">
-            <button class="button button-primary" type="submit">Spara utseende</button>
+            <button class="button button-primary" type="submit">Spara inställningar</button>
         </div>
     </form>
 </section>

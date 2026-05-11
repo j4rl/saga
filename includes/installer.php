@@ -45,6 +45,7 @@ function installer_create_schema(mysqli $conn, string $prefix, string $schoolNam
             logo_filename VARCHAR(120) NULL,
             logo_original_name VARCHAR(180) NULL,
             logo_mime VARCHAR(80) NULL,
+            require_pdf_for_submission TINYINT(1) NOT NULL DEFAULT 0,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_swedish_ci",
         "CREATE TABLE IF NOT EXISTS $categories (

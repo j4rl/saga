@@ -57,6 +57,8 @@ $showDraftFeedback = $project
 
 $teachers = fetch_school_teachers($conn, (int) $projectOwner['school_id']);
 $categories = fetch_project_categories($conn);
+$schoolSubmissionPolicy = fetch_school_profile($conn, (int) $projectOwner['school_id']);
+$requiresPdfForSubmission = (int) ($schoolSubmissionPolicy['require_pdf_for_submission'] ?? 0) === 1;
 $feedback = $showDraftFeedback ? fetch_project_feedback($conn, (int) $project['id']) : [];
 $errors = [];
 $formData = [
@@ -214,6 +216,8 @@ require_once __DIR__ . '/includes/header.php';
                 <input id="pdf_file" name="pdf_file" type="file" accept="application/pdf,.pdf" <?= $project ? '' : 'required' ?> data-max-bytes="<?= (int) MAX_UPLOAD_BYTES ?>" <?= $canEditContent ? '' : 'disabled' ?>>
                 <?php if ($project && $project['pdf_original_name']): ?>
                     <p class="field-help">Nuvarande fil: <?= h($project['pdf_original_name']) ?></p>
+                <?php elseif ($requiresPdfForSubmission): ?>
+                    <p class="field-help">Din skola kräver PDF innan slutlig inlämning. Max 15 MB. Endast PDF.</p>
                 <?php else: ?>
                     <p class="field-help">Max 15 MB. Endast PDF.</p>
                 <?php endif; ?>

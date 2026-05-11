@@ -106,6 +106,7 @@ check(!str_contains($loginSource, 'admin/admin123'), 'Inloggningssidan ska inte 
 
 $functionsSource = file_get_contents(__DIR__ . '/../includes/functions.php') ?: '';
 check(str_contains($functionsSource, 'password_reset_attempts'), 'Tabellprefix ska omfatta password_reset_attempts.');
+check(str_contains($functionsSource, 'require_pdf_for_submission'), 'Skolans regel for PDF vid slutlig inlamning ska hamtas i skolprofilen.');
 check(
     str_contains($functionsSource, 'UPDATE projects SET category_id = ? WHERE category_id = ?'),
     'Kategorisammanslagning ska flytta alla arbeten fran gammal till ny kategori.'
@@ -135,6 +136,10 @@ check(str_contains($projectsSource, 'p.category_id = ?'), 'Kategori-godkannande 
 $projectEditSource = file_get_contents(__DIR__ . '/../project_edit.php') ?: '';
 check(str_contains($projectEditSource, 'supervisor_name_manual'), 'Elever ska kunna ange tidigare handledares namn manuellt.');
 check(str_contains($projectEditSource, 'confirm_publication_consent'), 'Publicering ska krava separat samtycke till sokbarhet.');
+check(str_contains($projectEditSource, 'Din skola kräver PDF innan slutlig inlämning'), 'Eleven ska se nar skolan kraver PDF innan slutlig inlamning.');
+
+$projectFormHandlerSource = file_get_contents(__DIR__ . '/../includes/project_form_handler.php') ?: '';
+check(str_contains($projectFormHandlerSource, 'Skolans regel kräver att en PDF är uppladdad innan slutlig inlämning.'), 'Skolans PDF-regel ska valideras server-side.');
 
 $authSource = file_get_contents(__DIR__ . '/../includes/auth.php') ?: '';
 check(str_contains($authSource, 'function assign_registration_to_teacher'), 'Skoladmin ska kunna tilldela elevregistreringar till larare.');
@@ -156,6 +161,7 @@ check(str_contains($profileSource, 'delete_account'), 'Profilsidan ska kunna rad
 $schoolAdminSource = file_get_contents(__DIR__ . '/../dashboard_school_admin.php') ?: '';
 check(str_contains($schoolAdminSource, 'assign_registration'), 'Skoladminpanelen ska ha atgard for att skicka elevregistrering till larare.');
 check(str_contains($schoolAdminSource, 'fetch_school_teachers'), 'Skoladminpanelen ska lista godkanda larare for tilldelning.');
+check(str_contains($schoolAdminSource, 'require_pdf_for_submission'), 'Skoladmin ska kunna aktivera krav pa PDF vid slutlig inlamning.');
 
 $teacherDashboardSource = file_get_contents(__DIR__ . '/../dashboard_teacher.php') ?: '';
 check(str_contains($teacherDashboardSource, 'Elevregistreringar att godkänna'), 'Lararpanelen ska visa tilldelade elevregistreringar.');

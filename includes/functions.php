@@ -340,6 +340,22 @@ function ensure_privacy_consent_columns(mysqli $conn): void
     }
 }
 
+function ensure_school_policy_columns(mysqli $conn): void
+{
+    static $done = false;
+
+    if ($done) {
+        return;
+    }
+
+    try {
+        execute_prepared($conn, 'ALTER TABLE schools ADD COLUMN IF NOT EXISTS require_pdf_for_submission TINYINT(1) NOT NULL DEFAULT 0 AFTER logo_mime');
+        $done = true;
+    } catch (Throwable $exception) {
+        log_app_error('Kunde inte säkerställa skolans regelkolumner.', $exception);
+    }
+}
+
 function fetch_schools(mysqli $conn): array
 {
     return fetch_all_prepared($conn, 'SELECT id, school_name FROM schools ORDER BY school_name');
@@ -357,10 +373,13 @@ function fetch_school(mysqli $conn, int $schoolId): ?array
 
 function fetch_school_profile(mysqli $conn, int $schoolId): ?array
 {
+    ensure_school_policy_columns($conn);
+
     return fetch_one_prepared(
         $conn,
         'SELECT id, school_name, theme_custom_enabled, theme_primary, theme_secondary,
-                theme_bg, theme_surface, theme_text, logo_filename, logo_original_name, logo_mime
+                theme_bg, theme_surface, theme_text, logo_filename, logo_original_name, logo_mime,
+                require_pdf_for_submission
          FROM schools
          WHERE id = ?
          LIMIT 1',

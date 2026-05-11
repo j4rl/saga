@@ -174,87 +174,115 @@ require_once __DIR__ . '/includes/header.php';
     <?php if (!$results['rows']): ?>
         <p class="empty-state">Inga arbeten hittades.</p>
     <?php else: ?>
-        <div class="table-wrap">
-            <table class="data-table">
-                <thead>
-                <tr>
-                    <th>Titel</th>
-                    <th>Elev</th>
-                    <th>Handledare</th>
-                    <th>Kategori</th>
-                    <th>Skola</th>
-                    <th>Status</th>
-                    <th>Godkänt</th>
-                    <th>Inlämnad</th>
-                    <th>Uppdaterad</th>
-                    <th></th>
-                </tr>
-                </thead>
-                <tbody>
-                <?php foreach ($results['rows'] as $project): ?>
-                    <tr>
-                        <td>
+        <div class="project-list">
+            <?php foreach ($results['rows'] as $project): ?>
+                <details class="project-list-item">
+                    <summary>
+                        <?php $isEffectivelyPublic = project_is_publicly_visible($project); ?>
+                        <span class="project-list-main">
                             <strong><?= h($project['title']) ?></strong>
                             <?php if ($project['subtitle']): ?>
-                                <span class="table-subtitle"><?= h($project['subtitle']) ?></span>
+                                <span><?= h($project['subtitle']) ?></span>
                             <?php endif; ?>
-                        </td>
-                        <td><?= h($project['student_name']) ?></td>
-                        <td><?= h($project['supervisor_name']) ?></td>
-                        <td><?= h($project['category_name']) ?></td>
-                        <td><?= h($project['school_name']) ?></td>
-                        <td>
-                            <span class="status-pill <?= (int) $project['is_submitted'] === 1 ? 'status-submitted' : 'status-draft' ?>">
-                                <?= (int) $project['is_submitted'] === 1 ? 'Inlämnat' : 'Utkast' ?>
-                            </span>
-                        </td>
-                        <td>
-                            <?php if (can_approve_project_for_teacher($conn, $project, $user)): ?>
-                                <form class="approval-form" method="post" action="dashboard_teacher.php">
-                                    <?= csrf_field() ?>
-                                    <input type="hidden" name="action" value="set_approval">
-                                    <input type="hidden" name="project_id" value="<?= (int) $project['id'] ?>">
-                                    <input type="hidden" name="view" value="<?= h($view) ?>">
-                                    <input type="hidden" name="q" value="<?= h($query) ?>">
-                                    <input type="hidden" name="sort" value="<?= h($sort) ?>">
-                                    <input type="hidden" name="page" value="<?= (int) $results['page'] ?>">
-                                    <label class="approval-toggle">
-                                        <input
-                                            type="checkbox"
-                                            name="is_approved"
-                                            value="1"
-                                            <?= (int) ($project['is_approved'] ?? 0) === 1 ? 'checked' : '' ?>
-                                            onchange="this.form.submit()"
-                                        >
-                                        <span><?= (int) ($project['is_approved'] ?? 0) === 1 ? 'Godkänt' : 'Godkänn' ?></span>
-                                    </label>
-                                    <noscript><button class="button button-secondary button-small" type="submit">Spara</button></noscript>
-                                </form>
-                            <?php elseif ((int) $project['is_submitted'] === 1 && (int) ($project['is_approved'] ?? 0) === 1): ?>
-                                <span class="status-pill status-approved">Godkänt</span>
-                            <?php elseif ((int) $project['is_submitted'] === 1): ?>
-                                <span class="status-pill status-pending">Väntar</span>
+                        </span>
+                        <span class="project-list-names">
+                            <span>Elev: <?= h($project['student_name']) ?></span>
+                            <span>Handledare: <?= h($project['supervisor_name']) ?></span>
+                        </span>
+                        <span class="project-status-icons" aria-label="Status">
+                            <?php if ((int) ($project['is_approved'] ?? 0) === 1): ?>
+                                <span class="project-status-icon status-icon-approved" title="Godkänd" aria-label="Godkänd">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.2 16.6 4.8 12.2l-1.9 1.9 6.3 6.3L21.4 8.2l-1.9-1.9z"/></svg>
+                                </span>
+                            <?php endif; ?>
+                            <?php if ($isEffectivelyPublic): ?>
+                                <span class="project-status-icon status-icon-visible" title="Visas" aria-label="Visas">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5C6.6 5 2.3 8.4 1 12c1.3 3.6 5.6 7 11 7s9.7-3.4 11-7c-1.3-3.6-5.6-7-11-7Zm0 11.2A4.2 4.2 0 1 1 12 7.8a4.2 4.2 0 0 1 0 8.4Zm0-2.4a1.8 1.8 0 1 0 0-3.6 1.8 1.8 0 0 0 0 3.6Z"/></svg>
+                                </span>
                             <?php else: ?>
-                                <span class="muted">-</span>
+                                <span class="project-status-icon status-icon-hidden" title="Visas ej" aria-label="Visas ej">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.3 2 18.7 18.7-1.6 1.6-3.3-3.3A12.3 12.3 0 0 1 12 20C6.6 20 2.3 16.6 1 13a12.7 12.7 0 0 1 4.1-5.4L1.7 4.2 3.3 2Zm5.5 8.7a4.2 4.2 0 0 0 5.5 5.5l-1.9-1.9a1.8 1.8 0 0 1-1.7-1.7l-1.9-1.9ZM12 6c5.4 0 9.7 3.4 11 7a12.3 12.3 0 0 1-2.9 4.2l-3-3A4.2 4.2 0 0 0 11 8.1L8.8 5.9A12 12 0 0 1 12 6Z"/></svg>
+                                </span>
                             <?php endif; ?>
-                        </td>
-                        <td><?= (int) $project['is_submitted'] === 1 ? h(format_date($project['submitted_at'])) : '-' ?></td>
-                        <td><?= h(format_date($project['updated_at'])) ?></td>
-                        <td>
-                            <a href="project_view.php?id=<?= (int) $project['id'] ?>">Visa</a>
+                            <?php if ((int) $project['is_submitted'] !== 1): ?>
+                                <span class="project-status-icon status-icon-draft" title="Utkast" aria-label="Utkast"></span>
+                            <?php endif; ?>
+                        </span>
+                    </summary>
+
+                    <div class="project-list-details">
+                        <dl class="project-list-facts">
+                            <div>
+                                <dt>Kategori</dt>
+                                <dd><?= h($project['category_name']) ?></dd>
+                            </div>
+                            <div>
+                                <dt>Skola</dt>
+                                <dd><?= h($project['school_name']) ?></dd>
+                            </div>
+                            <div>
+                                <dt>Status</dt>
+                                <dd>
+                                    <span class="status-pill <?= (int) $project['is_submitted'] === 1 ? 'status-submitted' : 'status-draft' ?>">
+                                        <?= (int) $project['is_submitted'] === 1 ? 'Inlämnat' : 'Utkast' ?>
+                                    </span>
+                                </dd>
+                            </div>
+                            <div>
+                                <dt>Godkänt</dt>
+                                <dd>
+                                    <?php if (can_approve_project_for_teacher($conn, $project, $user)): ?>
+                                        <form class="approval-form" method="post" action="dashboard_teacher.php">
+                                            <?= csrf_field() ?>
+                                            <input type="hidden" name="action" value="set_approval">
+                                            <input type="hidden" name="project_id" value="<?= (int) $project['id'] ?>">
+                                            <input type="hidden" name="view" value="<?= h($view) ?>">
+                                            <input type="hidden" name="q" value="<?= h($query) ?>">
+                                            <input type="hidden" name="sort" value="<?= h($sort) ?>">
+                                            <input type="hidden" name="page" value="<?= (int) $results['page'] ?>">
+                                            <label class="approval-toggle">
+                                                <input
+                                                    type="checkbox"
+                                                    name="is_approved"
+                                                    value="1"
+                                                    <?= (int) ($project['is_approved'] ?? 0) === 1 ? 'checked' : '' ?>
+                                                    onchange="this.form.submit()"
+                                                >
+                                                <span><?= (int) ($project['is_approved'] ?? 0) === 1 ? 'Godkänt' : 'Godkänn' ?></span>
+                                            </label>
+                                            <noscript><button class="button button-secondary button-small" type="submit">Spara</button></noscript>
+                                        </form>
+                                    <?php elseif ((int) $project['is_submitted'] === 1 && (int) ($project['is_approved'] ?? 0) === 1): ?>
+                                        <span class="status-pill status-approved">Godkänt</span>
+                                    <?php elseif ((int) $project['is_submitted'] === 1): ?>
+                                        <span class="status-pill status-pending">Väntar</span>
+                                    <?php else: ?>
+                                        <span class="muted">-</span>
+                                    <?php endif; ?>
+                                </dd>
+                            </div>
+                            <div>
+                                <dt>Inlämnad</dt>
+                                <dd><?= (int) $project['is_submitted'] === 1 ? h(format_date($project['submitted_at'])) : '-' ?></dd>
+                            </div>
+                            <div>
+                                <dt>Uppdaterad</dt>
+                                <dd><?= h(format_date($project['updated_at'])) ?></dd>
+                            </div>
+                        </dl>
+
+                        <div class="project-actions">
+                            <a class="button button-secondary" href="project_view.php?id=<?= (int) $project['id'] ?>">Visa</a>
                             <?php if (can_comment_project($project, $user)): ?>
-                                <span aria-hidden="true"> · </span>
-                                <a href="project_view.php?id=<?= (int) $project['id'] ?>#feedback">Ge återkoppling</a>
+                                <a class="button button-secondary" href="project_view.php?id=<?= (int) $project['id'] ?>#feedback">Ge återkoppling</a>
                             <?php endif; ?>
                             <?php if (can_unlock_project_submission($project, $user)): ?>
-                                <span aria-hidden="true"> · </span>
-                                <a href="project_edit.php?id=<?= (int) $project['id'] ?>">Hantera</a>
+                                <a class="button button-secondary" href="project_edit.php?id=<?= (int) $project['id'] ?>">Hantera</a>
                             <?php endif; ?>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
-                </tbody>
-            </table>
+                        </div>
+                    </div>
+                </details>
+            <?php endforeach; ?>
         </div>
 
         <?php if ($results['pages'] > 1): ?>

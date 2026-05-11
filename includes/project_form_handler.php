@@ -113,6 +113,14 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
         $errors[] = $upload['error'];
     }
 
+    $schoolProfile = fetch_school_profile($conn, $projectSchoolId);
+    $requiresPdfForSubmission = (int) ($schoolProfile['require_pdf_for_submission'] ?? 0) === 1;
+    $hasExistingPdf = $existingProject && !empty($existingProject['pdf_filename']);
+    $hasNewPdf = !empty($upload['file']);
+    if ($isSubmitted === 1 && $requiresPdfForSubmission && !$hasExistingPdf && !$hasNewPdf) {
+        $errors[] = 'Skolans regel kräver att en PDF är uppladdad innan slutlig inlämning.';
+    }
+
     if ($errors) {
         return [
             'ok' => false,
