@@ -23,6 +23,11 @@ Senast genomgånget: 2026-05-11.
   - `includes/functions.php` använder `mail()`, vilket ofta är opålitligt i produktion.
   - Lägg till SMTP-konfiguration, tydligare felhantering och gärna kö/retry för notifieringar.
 
+- [ ] Lägg till tvåfaktorsautentisering.
+  - Bör minst stödja TOTP via autentiseringsapp för skoladmin och superadmin.
+  - Överväg att göra 2FA valfritt för elev/lärare men möjligt att kräva per skola.
+  - Lägg till återställningskoder och tydligt flöde för borttappad andra faktor.
+
 - [x] Gör `APP_BASE_URL` konfigurerbar för produktion.
   - Installeraren kan skriva `APP_BASE_URL` till `config/installed.php`.
   - `config/app.php` kan också läsa `SAGA_APP_BASE_URL` eller `APP_BASE_URL` från miljön.
@@ -139,6 +144,11 @@ Senast genomgånget: 2026-05-11.
 - [x] Gå igenom tillgänglighet.
   - Sidhuvudet har skip-link till huvudinnehåll.
   - Fokusmarkeringar har förstärkts och ikonbaserad utloggning är en riktig knapp med CSRF-formulär.
+
+- [ ] Lägg till i18n-stöd.
+  - Samla gränssnittstexter i språkfiler i stället för hårdkodad svenska i vyerna.
+  - Börja med svenska och engelska, och välj språk per användare eller webbläsarinställning.
+  - Säkerställ att datum, statusetiketter, valideringsfel och e-posttexter översätts konsekvent.
 
 ## Teknisk verifiering
 
