@@ -23,6 +23,9 @@ if (is_post()) {
                 break;
             }
         }
+        if ($customEnabled === 1 && !$errors) {
+            $errors = array_merge($errors, validate_school_theme_colors($colors));
+        }
 
         $logoUpload = validate_school_logo_upload($_FILES['logo_file'] ?? []);
         if (!$logoUpload['ok']) {
@@ -187,6 +190,7 @@ require_once __DIR__ . '/includes/header.php';
                     <input id="theme_text" name="theme_text" type="color" value="<?= h($themeColors['theme_text']) ?>" data-theme-color="--text">
                 </div>
             </div>
+            <p class="field-help">Text och länkar måste ha minst 4.5:1 kontrast. Mörkt läge använder kontrastsäkra mörka ytor med skolans accentfärger.</p>
         </div>
 
         <div class="settings-panel">

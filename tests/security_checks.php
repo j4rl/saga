@@ -60,6 +60,8 @@ check(can_unlock_project_submission($ownSubmitted, $teacher) === true, 'Handleda
 check(can_approve_project($ownSubmitted, $teacher) === true, 'Handledare ska kunna godkanna egen elevs inlamning.');
 check(can_approve_project($ownDraft, $teacher) === false, 'Handledare ska inte kunna godkanna utkast.');
 check(can_approve_project($submittedByOtherTeacher, $teacher) === false, 'Larare ska inte kunna godkanna andra handledares inlamningar.');
+check(project_is_publicly_visible($publicProject) === false, 'Publikt markerade arbeten utan godkannande ska inte vara publikt synliga.');
+check(project_is_publicly_visible($approvedPublicProject) === true, 'Godkanda publika inlamningar ska vara publikt synliga.');
 
 $student = [
     'id' => 20,
@@ -78,5 +80,36 @@ check(can_edit_project_content($ownDraft, $otherStudent) === false, 'Elev ska in
 
 $loginSource = file_get_contents(__DIR__ . '/../login.php') ?: '';
 check(!str_contains($loginSource, 'admin/admin123'), 'Inloggningssidan ska inte visa testkonton.');
+
+$_SERVER['HTTP_HOST'] = "evil.test\r\nBcc: attacker@example.com";
+check(safe_request_host() === 'localhost', 'HTTP_HOST med radbrytning ska inte anvandas i lankar eller headers.');
+check(mail_from_domain() === 'localhost', 'E-postavsandare ska falla tillbaka vid ogiltig Host-header.');
+
+$_SERVER['HTTP_HOST'] = 'saga.example:8080';
+check(safe_request_host() === 'saga.example:8080', 'Giltig Host-header med port ska accepteras.');
+check(mail_from_domain() === 'saga.example', 'E-postavsandare ska ta bort port fran Host-header.');
+
+$themeCss = school_theme_css_vars([
+    'theme_custom_enabled' => 1,
+    'theme_primary' => '#235b4e',
+    'theme_secondary' => '#24527a',
+    'theme_bg' => '#f6f7f9',
+    'theme_surface' => '#ffffff',
+    'theme_text' => '#20242a',
+]);
+check(str_contains($themeCss, ':root[data-theme="light"],:root[data-theme="auto"]'), 'Skolans ljusa tema ska vara avgransat till ljust/auto-ljust lage.');
+check(str_contains($themeCss, ':root[data-theme="dark"]'), 'Skolans tema ska ha regler for morkt lage.');
+check(str_contains($themeCss, '--bg: #f6f7f9'), 'Skolans bakgrundsfarg ska appliceras i ljust CSS-lage.');
+check(str_contains($themeCss, '--surface: #ffffff'), 'Skolans ytfarg ska appliceras i ljust CSS-lage.');
+check(str_contains($themeCss, '--text: #20242a'), 'Skolans textfarg ska appliceras i ljust CSS-lage.');
+
+$contrastErrors = validate_school_theme_colors([
+    'theme_primary' => '#235b4e',
+    'theme_secondary' => '#cccccc',
+    'theme_bg' => '#ffffff',
+    'theme_surface' => '#ffffff',
+    'theme_text' => '#eeeeee',
+]);
+check($contrastErrors !== [], 'Skolans tema ska neka olasbara kontraster.');
 
 echo "security checks ok\n";

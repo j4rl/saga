@@ -3,7 +3,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const cookieAcceptButton = document.querySelector('[data-cookie-accept]');
   if (cookieBanner && cookieAcceptButton) {
     cookieAcceptButton.addEventListener('click', () => {
-      document.cookie = 'saga_cookie_consent=accepted; Max-Age=315360000; Path=/; SameSite=Lax';
+      const secureCookie = window.location.protocol === 'https:' ? '; Secure' : '';
+      document.cookie = `saga_cookie_consent=accepted; Max-Age=315360000; Path=/; SameSite=Lax${secureCookie}`;
       cookieBanner.hidden = true;
     });
   }
@@ -36,7 +37,8 @@ document.addEventListener('DOMContentLoaded', () => {
         button.setAttribute('aria-checked', selected ? 'true' : 'false');
         button.classList.toggle('active', selected);
       });
-      document.cookie = `saga_theme_mode=${activeTheme}; Max-Age=31536000; Path=/; SameSite=Lax`;
+      const secureCookie = window.location.protocol === 'https:' ? '; Secure' : '';
+      document.cookie = `saga_theme_mode=${activeTheme}; Max-Age=31536000; Path=/; SameSite=Lax${secureCookie}`;
 
       try {
         window.localStorage.setItem('saga.themeMode', activeTheme);

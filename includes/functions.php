@@ -65,6 +65,62 @@ function send_security_headers(): void
     }
 }
 
+function request_is_https(): bool
+{
+    return !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+}
+
+function configured_app_base_url(): ?string
+{
+    if (!defined('APP_BASE_URL')) {
+        return null;
+    }
+
+    $url = rtrim((string) APP_BASE_URL, '/');
+    $parts = parse_url($url);
+    if (
+        !$parts
+        || !in_array($parts['scheme'] ?? '', ['http', 'https'], true)
+        || empty($parts['host'])
+    ) {
+        return null;
+    }
+
+    return $url;
+}
+
+function safe_request_host(): string
+{
+    $host = trim((string) ($_SERVER['HTTP_HOST'] ?? 'localhost'));
+    if ($host === '' || str_contains($host, "\r") || str_contains($host, "\n")) {
+        return 'localhost';
+    }
+
+    if (preg_match('/^(localhost|[A-Za-z0-9.-]+|\[[0-9A-Fa-f:.]+\])(:[0-9]{1,5})?$/', $host) !== 1) {
+        return 'localhost';
+    }
+
+    return mb_substr($host, 0, 255, 'UTF-8');
+}
+
+function mail_from_domain(): string
+{
+    $baseUrl = configured_app_base_url();
+    $host = $baseUrl ? (string) (parse_url($baseUrl, PHP_URL_HOST) ?: '') : safe_request_host();
+    $host = preg_replace('/:\d+$/', '', $host) ?? '';
+    $host = trim($host, '[]');
+    $host = preg_replace('/[^A-Za-z0-9.-]/', '', $host) ?? '';
+
+    return $host !== '' ? $host : 'localhost';
+}
+
+function sanitize_mail_header_value(string $value, int $maxLength = 190): string
+{
+    $value = trim(str_replace(["\r", "\n"], ' ', $value));
+
+    return mb_substr($value, 0, $maxLength, 'UTF-8');
+}
+
 function app_is_installed(): bool
 {
     return is_file(INSTALL_LOCK_FILE);
@@ -343,31 +399,190 @@ function hex_color_luminance(string $color): float
     return (0.2126 * $channels[0]) + (0.7152 * $channels[1]) + (0.0722 * $channels[2]);
 }
 
+function hex_color_contrast_ratio(string $foreground, string $background): float
+{
+    $foregroundLuminance = hex_color_luminance($foreground);
+    $backgroundLuminance = hex_color_luminance($background);
+    $lighter = max($foregroundLuminance, $backgroundLuminance);
+    $darker = min($foregroundLuminance, $backgroundLuminance);
+
+    return ($lighter + 0.05) / ($darker + 0.05);
+}
+
+function readable_text_color(string $background, string $light = '#ffffff', string $dark = '#0d211a'): string
+{
+    return hex_color_contrast_ratio($light, $background) >= hex_color_contrast_ratio($dark, $background)
+        ? $light
+        : $dark;
+}
+
+function hex_to_rgb(string $color): array
+{
+    $color = ltrim($color, '#');
+
+    return [
+        hexdec(substr($color, 0, 2)),
+        hexdec(substr($color, 2, 2)),
+        hexdec(substr($color, 4, 2)),
+    ];
+}
+
+function rgb_to_hex(array $rgb): string
+{
+    return sprintf(
+        '#%02x%02x%02x',
+        max(0, min(255, (int) round($rgb[0]))),
+        max(0, min(255, (int) round($rgb[1]))),
+        max(0, min(255, (int) round($rgb[2])))
+    );
+}
+
+function mix_hex_colors(string $color, string $target, float $targetWeight): string
+{
+    $sourceRgb = hex_to_rgb($color);
+    $targetRgb = hex_to_rgb($target);
+    $targetWeight = max(0.0, min(1.0, $targetWeight));
+    $sourceWeight = 1.0 - $targetWeight;
+
+    return rgb_to_hex([
+        ($sourceRgb[0] * $sourceWeight) + ($targetRgb[0] * $targetWeight),
+        ($sourceRgb[1] * $sourceWeight) + ($targetRgb[1] * $targetWeight),
+        ($sourceRgb[2] * $sourceWeight) + ($targetRgb[2] * $targetWeight),
+    ]);
+}
+
+function color_contrasts_with_all(string $color, array $backgrounds, float $minimumRatio): bool
+{
+    foreach ($backgrounds as $background) {
+        if (hex_color_contrast_ratio($color, $background) < $minimumRatio) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function adjust_color_for_contrast(string $color, array $backgrounds, float $minimumRatio = 4.5): string
+{
+    if (color_contrasts_with_all($color, $backgrounds, $minimumRatio)) {
+        return $color;
+    }
+
+    foreach (['#ffffff', '#000000'] as $target) {
+        for ($step = 1; $step <= 20; $step++) {
+            $candidate = mix_hex_colors($color, $target, $step * 0.05);
+            if (color_contrasts_with_all($candidate, $backgrounds, $minimumRatio)) {
+                return $candidate;
+            }
+        }
+    }
+
+    $whitePasses = color_contrasts_with_all('#ffffff', $backgrounds, $minimumRatio);
+
+    return $whitePasses ? '#ffffff' : '#000000';
+}
+
+function validate_school_theme_colors(array $colors): array
+{
+    $errors = [];
+    $required = ['theme_primary', 'theme_secondary', 'theme_bg', 'theme_surface', 'theme_text'];
+
+    foreach ($required as $field) {
+        if (empty($colors[$field]) || !is_hex_color($colors[$field])) {
+            return ['Alla färger i det egna temat måste anges som giltiga hex-färger.'];
+        }
+    }
+
+    $minimumTextContrast = 4.5;
+    if (hex_color_contrast_ratio($colors['theme_text'], $colors['theme_bg']) < $minimumTextContrast) {
+        $errors[] = 'Textfärgen måste ha minst 4.5:1 kontrast mot bakgrunden.';
+    }
+
+    if (hex_color_contrast_ratio($colors['theme_text'], $colors['theme_surface']) < $minimumTextContrast) {
+        $errors[] = 'Textfärgen måste ha minst 4.5:1 kontrast mot ytfärgen.';
+    }
+
+    if (!color_contrasts_with_all($colors['theme_secondary'], [$colors['theme_bg'], $colors['theme_surface']], $minimumTextContrast)) {
+        $errors[] = 'Länkfärgen måste ha minst 4.5:1 kontrast mot både bakgrund och ytor.';
+    }
+
+    $buttonText = readable_text_color($colors['theme_primary']);
+    if (hex_color_contrast_ratio($buttonText, $colors['theme_primary']) < $minimumTextContrast) {
+        $errors[] = 'Primärfärgen måste fungera med läsbar knapptext.';
+    }
+
+    return $errors;
+}
+
+function css_var_block(string $selector, array $vars): string
+{
+    if (!$vars) {
+        return '';
+    }
+
+    $declarations = [];
+    foreach ($vars as $name => $value) {
+        $declarations[] = $name . ': ' . $value;
+    }
+
+    return $selector . '{' . implode(';', $declarations) . ';}';
+}
+
+function theme_support_vars(string $primary, string $surface, string $text): array
+{
+    return [
+        '--primary-strong' => 'color-mix(in srgb, ' . $primary . ' 88%, ' . $text . ')',
+        '--on-primary' => readable_text_color($primary),
+        '--surface-strong' => 'color-mix(in srgb, ' . $surface . ' 92%, ' . $text . ')',
+        '--line' => 'color-mix(in srgb, ' . $surface . ' 78%, ' . $text . ')',
+        '--input-bg' => $surface,
+        '--input-border' => 'color-mix(in srgb, ' . $surface . ' 68%, ' . $text . ')',
+        '--muted' => 'color-mix(in srgb, ' . $text . ' 68%, ' . $surface . ')',
+        '--header-bg' => $surface,
+        '--focus-ring' => 'color-mix(in srgb, ' . $primary . ' 28%, transparent)',
+    ];
+}
+
 function school_theme_css_vars(array $school): string
 {
     if ((int) ($school['theme_custom_enabled'] ?? 0) !== 1) {
         return '';
     }
 
-    $accentMap = [
-        'theme_primary' => '--primary',
-        'theme_secondary' => '--secondary',
-    ];
-    $accentVars = [];
-
-    foreach ($accentMap as $field => $cssVar) {
+    $colors = [];
+    foreach (array_keys(default_theme_colors()) as $field) {
         $color = normalize_hex_color($school[$field] ?? null);
-        if ($color) {
-            $accentVars[] = $cssVar . ': ' . $color;
-
-            if ($field === 'theme_primary') {
-                $accentVars[] = '--primary-strong: color-mix(in srgb, ' . $color . ' 88%, var(--text))';
-                $accentVars[] = '--on-primary: ' . (hex_color_luminance($color) < 0.42 ? '#ffffff' : '#0d211a');
-            }
+        if (!$color) {
+            return '';
         }
+        $colors[$field] = $color;
     }
 
-    return $accentVars ? ':root{' . implode(';', $accentVars) . ';}' : '';
+    if (validate_school_theme_colors($colors)) {
+        return '';
+    }
+
+    $lightVars = [
+        '--primary' => $colors['theme_primary'],
+        '--secondary' => $colors['theme_secondary'],
+        '--bg' => $colors['theme_bg'],
+        '--surface' => $colors['theme_surface'],
+        '--text' => $colors['theme_text'],
+    ] + theme_support_vars($colors['theme_primary'], $colors['theme_surface'], $colors['theme_text']);
+
+    $darkBg = '#0f1418';
+    $darkSurface = '#182027';
+    $darkText = '#eef4f6';
+    $darkPrimary = adjust_color_for_contrast($colors['theme_primary'], [$darkBg, $darkSurface], 3.0);
+    $darkSecondary = adjust_color_for_contrast($colors['theme_secondary'], [$darkBg, $darkSurface], 4.5);
+    $darkVars = [
+        '--primary' => $darkPrimary,
+        '--secondary' => $darkSecondary,
+    ] + theme_support_vars($darkPrimary, $darkSurface, $darkText);
+
+    return css_var_block(':root[data-theme="light"],:root[data-theme="auto"]', $lightVars)
+        . '@media (prefers-color-scheme: dark){' . css_var_block(':root[data-theme="auto"]', $darkVars) . '}'
+        . css_var_block(':root[data-theme="dark"]', $darkVars);
 }
 
 function normalize_theme_mode(?string $mode): string
@@ -395,6 +610,7 @@ function normalize_email(?string $email): ?string
 function send_email_notification(mysqli $conn, string $recipientEmail, string $subject, string $body): void
 {
     $recipientEmail = (string) normalize_email($recipientEmail);
+    $subject = sanitize_mail_header_value($subject);
     $status = 'skipped';
     $error = null;
 
@@ -402,7 +618,7 @@ function send_email_notification(mysqli $conn, string $recipientEmail, string $s
         $headers = [
             'MIME-Version: 1.0',
             'Content-Type: text/plain; charset=UTF-8',
-            'From: SAGA <no-reply@' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '>',
+            'From: SAGA <no-reply@' . mail_from_domain() . '>',
         ];
 
         try {
@@ -518,6 +734,15 @@ function fetch_environment_checks(mysqli $conn): array
         'HTTPS',
         $isHttps ? 'ok' : 'warning',
         $isHttps ? 'HTTPS används.' : 'HTTPS verkar inte vara aktivt för denna request.'
+    );
+
+    $baseUrl = configured_app_base_url();
+    $add(
+        'Publik bas-URL',
+        $baseUrl ? 'ok' : 'warning',
+        $baseUrl
+            ? 'APP_BASE_URL är satt till ' . $baseUrl . '.'
+            : 'APP_BASE_URL saknas. Lösenordsåterställning bygger då länkar från aktuell Host-header.'
     );
 
     return $checks;

@@ -1,6 +1,6 @@
 # Säkerhetsanalys av SAGA
 
-Analysdatum: 2026-05-06  
+Analysdatum: 2026-05-11  
 System: SAGA, Svenskt Arkiv för GymnasieArbeten
 
 ## Sammanfattning
@@ -24,6 +24,7 @@ Följande områden har granskats:
 - Browser-säkerhetsheaders
 - Auditloggning och personuppgiftsminimering
 - E-postnotiser och lösenordsåterställning
+- Host-header och externa länkar
 - Driftkontroller, migrationer och retention
 - Tillgänglighet kopplad till säker användning
 
@@ -46,6 +47,11 @@ Följande områden har granskats:
 - Lösenordsåterställning sker via engångstoken i `password_resets`.
 - Återställningssidan svarar neutralt: den avslöjar inte om ett konto eller en e-postadress finns.
 - Återställningstoken lagras som hash och har utgångstid.
+- Återställningslänkar kan använda fast `APP_BASE_URL`. Om den saknas används en validerad `Host`-header.
+
+**Kvarstående risk**
+
+Själva begäran om lösenordsåterställning saknar separat rate limiting. Det bör införas per konto/IP för att minska risken för e-postspam och missbruk.
 
 ## Sessionshantering
 
@@ -235,10 +241,30 @@ CSP tillåter fortfarande `'unsafe-inline'` för script/style på grund av befin
 - Notisloggar sparar mottagare, ämne, status och fel, men inte brödtext.
 - Lösenordsåterställning använder engångstoken med hashad lagring och utgångstid.
 - Återställda lösenord rensar kravet på tillfälligt lösenordsbyte.
+- E-postämnen och avsändardomän saneras innan `mail()` används.
 
 **Kvarstående risk**
 
 SAGA använder fortfarande PHP `mail()`. För produktion bör SMTP med TLS, autentisering och kontrollerad avsändare införas.
+
+## Host-header och externa länkar
+
+**Risker som granskats**
+
+- Återställningslänkar som får fel domän om servern accepterar manipulerad `Host`-header.
+- Header injection via rå host eller ämnesrad i e-post.
+
+**Lösning i SAGA**
+
+- `app_base_url()` använder `APP_BASE_URL` när den är definierad.
+- Om `APP_BASE_URL` saknas valideras requestens host strikt innan den används.
+- Ogiltig eller radbruten host faller tillbaka till `localhost`.
+- E-postavsändarens domän hämtas från `APP_BASE_URL` eller sanerad host.
+- `health.php` varnar om `APP_BASE_URL` saknas.
+
+**Kvarstående risk**
+
+I produktion bör `APP_BASE_URL` alltid sättas explicit. Fallback till sanerad host är främst avsedd för lokal utveckling och enkla installationer.
 
 ## Migrationer och drift
 
@@ -262,6 +288,7 @@ SAGA använder fortfarande PHP `mail()`. För produktion bör SMTP med TLS, aute
   - skrivbarhet i `config/`,
   - HTTPS.
 - `tools/verify.ps1` kör syntaxkontroll och säkerhetstester.
+- Driftkontrollen varnar om `APP_BASE_URL` saknas.
 
 ## Tillgänglighet som säkerhetsaspekt
 
@@ -277,12 +304,17 @@ SAGA använder fortfarande PHP `mail()`. För produktion bör SMTP med TLS, aute
 - Fokusmarkeringar är förstärkta.
 - Ikonbaserad utloggning är en riktig knapp i ett POST-formulär.
 - Formulär använder label-element och tydliga felmeddelanden.
+- Skolans anpassade tema applicerar nu primär färg, länkfärg, bakgrund, yta och textfärg.
+- Skolans anpassade tema valideras med minst 4.5:1 kontrast för text och länkar i ljust läge.
+- Mörkt läge använder systemets mörka ytor och kontrastjusterade skolaccentfärger, så ett ljust skoltema inte gör mörkt läge oläsligt.
 
 ## Kvarstående rekommendationer
 
 Följande förbättringar bör prioriteras innan bred produktion:
 
 - Inför SMTP med TLS och autentisering i stället för PHP `mail()`.
+- Sätt `APP_BASE_URL` i produktion.
+- Lägg till rate limiting för lösenordsåterställning.
 - Flytta `UPLOAD_DIR` utanför webbroten om servermiljön tillåter det.
 - Lägg till virusskanning eller PDF-sanitization för uppladdade filer.
 - Inför granskningsflöde innan arbeten blir publika.

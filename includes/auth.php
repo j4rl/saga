@@ -79,8 +79,13 @@ function ensure_password_resets_table(mysqli $conn): void
 
 function app_base_url(): string
 {
-    $isHttps = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
-    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $configuredBaseUrl = configured_app_base_url();
+    if ($configuredBaseUrl) {
+        return $configuredBaseUrl;
+    }
+
+    $isHttps = request_is_https();
+    $host = safe_request_host();
     $path = rtrim(str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? ''))), '/');
     if ($path === '.' || $path === '/') {
         $path = '';

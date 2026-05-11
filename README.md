@@ -79,6 +79,7 @@ SAGA började som en **MVP**, en första användbar version med kärnfunktioner.
 - sökning och kategorier,
 - lösenordsåterställning,
 - inloggningsbegränsning,
+- sanerad bas-URL för återställningslänkar och e-postheaders,
 - auditlogg,
 - driftkontroll,
 - gallring av äldre loggar och filversioner.
@@ -88,9 +89,11 @@ SAGA började som en **MVP**, en första användbar version med kärnfunktioner.
 SAGA är starkare än en enkel MVP, men vissa beslut hör hemma i drift och förvaltning innan systemet används brett:
 
 - E-post bör skickas via SMTP med TLS i stället för PHP:s enklare `mail()`-funktion.
+- Produktion bör sätta en fast `APP_BASE_URL`, så lösenordsåterställning inte behöver bygga länkar från aktuell request.
 - Uppladdade filer bör helst lagras utanför webbroten om servermiljön tillåter det.
 - PDF-filer bör virusskannas eller saneras i miljöer där många okända filer laddas upp.
 - Skolan bör ta ställning till om publika arbeten ska granskas innan de blir synliga.
+- Egna skolteman kontrastkontrolleras, men bör fortfarande granskas visuellt med skolans logotyp och faktiska innehåll.
 - Backup, gallring och incidentrutiner bör dokumenteras för den miljö där SAGA körs.
 
 ## Teknisk översikt
@@ -106,6 +109,19 @@ Viktiga delar:
 - **PDF-filer** sparas med slumpade filnamn och hämtas genom behörighetskontroller.
 - **Auditlogg** används för att kunna följa viktiga händelser.
 - **Migreringar** används för att kunna uppdatera databasen när systemet utvecklas.
+- **Verifiering** kan köras med `.\tools\verify.ps1`, som gör PHP-syntaxkontroll och kör säkerhetstesterna.
+
+## Driftkonfiguration
+
+Efter installation skapas `config/installed.php` lokalt med databasuppgifter. Den filen ska inte checkas in och bör skyddas med filrättigheter.
+
+För produktion rekommenderas även att definiera:
+
+```php
+define('APP_BASE_URL', 'https://exempel.se/saga');
+```
+
+Om `APP_BASE_URL` saknas använder SAGA en validerad `Host`-header för återställningslänkar. Det fungerar i lokal utveckling, men en fast bas-URL är tydligare och säkrare bakom proxy, lastbalanserare eller CDN.
 
 ## Begrepp
 

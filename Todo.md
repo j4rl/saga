@@ -1,6 +1,6 @@
 # Todo för SAGA
 
-Senast genomgånget: 2026-05-06.
+Senast genomgånget: 2026-05-11.
 
 ## Hög prioritet
 
@@ -23,9 +23,21 @@ Senast genomgånget: 2026-05-06.
   - `includes/functions.php` använder `mail()`, vilket ofta är opålitligt i produktion.
   - Lägg till SMTP-konfiguration, tydligare felhantering och gärna kö/retry för notifieringar.
 
+- [ ] Sätt en fast `APP_BASE_URL` i produktionsmiljö.
+  - Återställningslänkar kan nu använda `APP_BASE_URL` om den definieras.
+  - Utan den faller systemet tillbaka på sanerad `Host`-header, vilket är rimligt lokalt men sämre för produktion bakom proxy/CDN.
+
+- [ ] Lägg till rate limiting för lösenordsåterställning.
+  - Flödet svarar neutralt och token lagras säkert, men begäran bör begränsas per konto/IP för att minska e-postspam och missbruk.
+
 - [x] Lägg till automatiska tester för behörigheter.
   - `tests/security_checks.php` testar centrala regler för elev/lärare, privata utkast, publika arbeten, redigering och upplåsning.
   - Körs via `tools/verify.ps1`.
+
+- [x] Hårdgör länkar och e-postheaders mot manipulerad `Host`-header.
+  - `app_base_url()` använder `APP_BASE_URL` när den finns och annars en validerad host.
+  - E-postavsändarens domän och ämnesrad saneras innan `mail()` används.
+  - `health.php` varnar om `APP_BASE_URL` saknas.
 
 ## Mellanprioritet
 
@@ -64,6 +76,14 @@ Senast genomgånget: 2026-05-06.
 - [x] Lägg till lagringspolicy för PDF-versioner och logotyper.
   - Retention-konstanter finns i `config/app.php`.
   - `tools/cleanup_storage.php` kör torrkörning som standard och kan rensa med `--apply`.
+
+- [x] Applicera hela skolans färgtema i gränssnittet.
+  - Tidigare användes främst primär- och länkfärg trots att bakgrund, yta och text sparades.
+  - `school_theme_css_vars()` applicerar nu även `theme_bg`, `theme_surface` och `theme_text`.
+
+- [x] Lägg till kontrastkontroll för skolans egna färgtema.
+  - Servern kräver minst 4.5:1 kontrast för text mot bakgrund/yta och länkfärg mot bakgrund/yta.
+  - Mörkt läge använder kontrastsäkra accentfärger på systemets mörka ytor, så ett ljust skoltema inte gör mörkt läge oläsligt.
 
 ## Lägre prioritet
 
@@ -106,3 +126,5 @@ Senast genomgånget: 2026-05-06.
 - [x] PHP-syntaxkontroll körd med `C:\xampp\php\php.exe -l` på alla PHP-filer.
 - [x] Lägg till ett repeterbart testkommando eller script så detta kan köras utan manuell PowerShell-loop.
   - Kör `.\tools\verify.ps1`.
+- [x] Verifiering körd igen 2026-05-11.
+  - Syntaxkontroll och säkerhetstester passerar.

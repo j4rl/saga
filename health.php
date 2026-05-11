@@ -59,6 +59,7 @@ require_once __DIR__ . '/includes/header.php';
     <h2>Driftchecklista</h2>
     <ul class="checklist">
         <li>Aktivera HTTPS innan riktig användardata hanteras.</li>
+        <li>Sätt <code>APP_BASE_URL</code> till den publika adressen innan lösenordsåterställning används i produktion.</li>
         <li>Flytta helst uppladdningar utanför webbroten, eller säkra motsvarande serverregel för Apache/Nginx/IIS.</li>
         <li>Lås `config/` efter installation så webbservern inte kan skriva där.</li>
         <li>Sätt upp backup för databas och uppladdade filer.</li>
