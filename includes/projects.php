@@ -814,14 +814,10 @@ function store_uploaded_pdf(array $validatedFile): array
     ];
 }
 
-function can_comment_project(array $project, array $viewer): bool
+function can_view_project_feedback(array $project, array $viewer): bool
 {
     if (!can_view_project($project, $viewer)) {
         return false;
-    }
-
-    if (in_array($viewer['role'], ['super_admin', 'school_admin'], true)) {
-        return $viewer['role'] === 'super_admin' || (int) $project['school_id'] === (int) $viewer['school_id'];
     }
 
     if ($viewer['role'] === 'teacher') {
@@ -829,6 +825,11 @@ function can_comment_project(array $project, array $viewer): bool
     }
 
     return $viewer['role'] === 'student' && (int) $project['user_id'] === (int) $viewer['id'];
+}
+
+function can_comment_project(array $project, array $viewer): bool
+{
+    return can_view_project_feedback($project, $viewer);
 }
 
 function fetch_project_feedback(mysqli $conn, int $projectId): array

@@ -45,7 +45,8 @@ if (is_post()) {
 }
 
 $versions = fetch_project_versions($conn, (int) $project['id']);
-$feedback = fetch_project_feedback($conn, (int) $project['id']);
+$canViewFeedback = $viewer && can_view_project_feedback($project, $viewer);
+$feedback = $canViewFeedback ? fetch_project_feedback($conn, (int) $project['id']) : [];
 require_once __DIR__ . '/includes/header.php';
 ?>
 
@@ -154,38 +155,40 @@ require_once __DIR__ . '/includes/header.php';
         </section>
     <?php endif; ?>
 
-    <section id="feedback" class="content-block">
-        <h2>Återkoppling</h2>
-        <?php if (!$feedback): ?>
-            <p class="empty-state">Ingen återkoppling har skrivits ännu.</p>
-        <?php else: ?>
-            <div class="feedback-list">
-                <?php foreach ($feedback as $comment): ?>
-                    <article class="feedback-item">
-                        <header>
-                            <strong><?= h($comment['full_name']) ?></strong>
-                            <span><?= h(role_label($comment['role'])) ?> · <?= h(format_date($comment['created_at'])) ?></span>
-                        </header>
-                        <p><?= nl2br(h($comment['comment_text'])) ?></p>
-                    </article>
-                <?php endforeach; ?>
-            </div>
-        <?php endif; ?>
-
-        <?php if ($viewer && can_comment_project($project, $viewer)): ?>
-            <form class="feedback-form" method="post" action="project_view.php?id=<?= (int) $project['id'] ?>#feedback">
-                <?= csrf_field() ?>
-                <?php if ($feedbackError): ?>
-                    <div class="notice notice-error"><?= h($feedbackError) ?></div>
-                <?php endif; ?>
-                <div class="field">
-                    <label for="comment_text">Ny kommentar</label>
-                    <textarea id="comment_text" name="comment_text" rows="5" maxlength="2000" required></textarea>
+    <?php if ($canViewFeedback): ?>
+        <section id="feedback" class="content-block">
+            <h2>Återkoppling</h2>
+            <?php if (!$feedback): ?>
+                <p class="empty-state">Ingen återkoppling har skrivits ännu.</p>
+            <?php else: ?>
+                <div class="feedback-list">
+                    <?php foreach ($feedback as $comment): ?>
+                        <article class="feedback-item">
+                            <header>
+                                <strong><?= h($comment['full_name']) ?></strong>
+                                <span><?= h(role_label($comment['role'])) ?> · <?= h(format_date($comment['created_at'])) ?></span>
+                            </header>
+                            <p><?= nl2br(h($comment['comment_text'])) ?></p>
+                        </article>
+                    <?php endforeach; ?>
                 </div>
-                <button class="button button-primary" type="submit">Spara kommentar</button>
-            </form>
-        <?php endif; ?>
-    </section>
+            <?php endif; ?>
+
+            <?php if ($viewer && can_comment_project($project, $viewer)): ?>
+                <form class="feedback-form" method="post" action="project_view.php?id=<?= (int) $project['id'] ?>#feedback">
+                    <?= csrf_field() ?>
+                    <?php if ($feedbackError): ?>
+                        <div class="notice notice-error"><?= h($feedbackError) ?></div>
+                    <?php endif; ?>
+                    <div class="field">
+                        <label for="comment_text">Ny kommentar</label>
+                        <textarea id="comment_text" name="comment_text" rows="5" maxlength="2000" required></textarea>
+                    </div>
+                    <button class="button button-primary" type="submit">Spara kommentar</button>
+                </form>
+            <?php endif; ?>
+        </section>
+    <?php endif; ?>
 
     <section class="content-block">
         <h2>PDF-historik</h2>

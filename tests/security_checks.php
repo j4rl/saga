@@ -70,11 +70,31 @@ $student = [
     'full_name' => 'Exempel Elev',
 ];
 check(can_view_project($ownDraft, $student) === true, 'Elev ska kunna se eget arbete.');
+check(can_view_project_feedback($ownDraft, $student) === true, 'Elev ska kunna se aterkoppling pa eget arbete.');
 check(can_comment_project($ownDraft, $student) === true, 'Elev ska kunna se och svara pa aterkoppling innan slutlig inlamning.');
 check(can_edit_project_content($ownDraft, $student) === true, 'Elev ska kunna redigera eget utkast.');
 check(can_edit_project_content($ownSubmitted, $student) === false, 'Elev ska inte kunna redigera slutligt inlamnat arbete.');
+check(can_view_project_feedback($ownDraft, $teacher) === true, 'Handledare ska kunna se aterkoppling pa eget elevutkast.');
 check(can_comment_project($ownDraft, $teacher) === true, 'Handledare ska kunna ge aterkoppling innan slutlig inlamning.');
 check(can_comment_project($otherDraft, $teacher) === false, 'Larare ska inte kunna kommentera andra larares elevutkast.');
+check(can_view_project_feedback($submittedByOtherTeacher, $teacher) === false, 'Larare ska inte kunna se aterkoppling pa andra handledares inlamnade arbeten.');
+
+$schoolAdmin = [
+    'id' => 30,
+    'role' => 'school_admin',
+    'school_id' => 1,
+    'full_name' => 'Skol Admin',
+];
+$superAdmin = [
+    'id' => 1,
+    'role' => 'super_admin',
+    'school_id' => 1,
+    'full_name' => 'Super Admin',
+];
+check(can_view_project($ownDraft, $schoolAdmin) === true, 'Skoladmin ska fortsatt kunna se arbeten pa sin skola.');
+check(can_view_project_feedback($ownDraft, $schoolAdmin) === false, 'Skoladmin ska inte kunna se aterkoppling mellan elev och handledare.');
+check(can_view_project($ownDraft, $superAdmin) === true, 'Superadmin ska fortsatt kunna se arbeten.');
+check(can_view_project_feedback($ownDraft, $superAdmin) === false, 'Superadmin ska inte kunna se aterkoppling mellan elev och handledare.');
 
 $otherStudent = $student;
 $otherStudent['id'] = 21;
@@ -100,6 +120,13 @@ check(str_contains($categoriesSource, 'name="action" value="create"'), 'Superadm
 check(str_contains($categoriesSource, 'name="action" value="delete"'), 'Superadmin ska kunna ta bort tomma kategorier.');
 
 $projectsSource = file_get_contents(__DIR__ . '/../includes/projects.php') ?: '';
+check(str_contains($projectsSource, 'function can_view_project_feedback'), 'Aterkoppling ska ha separat behorighetskontroll.');
+$searchFunctionStart = strpos($projectsSource, 'function search_projects');
+$searchFunctionEnd = strpos($projectsSource, 'function teacher_dashboard_projects');
+$searchFunctionSource = ($searchFunctionStart !== false && $searchFunctionEnd !== false)
+    ? substr($projectsSource, $searchFunctionStart, $searchFunctionEnd - $searchFunctionStart)
+    : '';
+check(!str_contains($searchFunctionSource, 'project_feedback'), 'Aterkoppling ska inte inga i projektsokningen.');
 check(str_contains($projectsSource, 'function can_approve_project_for_teacher'), 'Larare ska kunna godkanna via handledarroll eller kategoriansvar.');
 check(str_contains($projectsSource, 'function fetch_category_approver_teacher'), 'Kategori-godkannande ska valja en ansvarig larare.');
 check(str_contains($projectsSource, 'ORDER BY category_project_count DESC, u.id ASC'), 'Kategori-godkannande ska ga till lararen med flest arbeten och deterministisk tie-break.');
