@@ -24,7 +24,7 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
         if ($isSubmitted === 0) {
             execute_prepared(
                 $conn,
-                'UPDATE projects SET is_submitted = 0, submitted_at = NULL, updated_at = NOW() WHERE id = ? AND is_submitted = 1',
+                'UPDATE projects SET is_public = 0, is_submitted = 0, submitted_at = NULL, updated_at = NOW() WHERE id = ? AND is_submitted = 1',
                 'i',
                 [$projectId]
             );
@@ -50,15 +50,18 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
     $projectOwnerId = (int) ($existingProject['user_id'] ?? $user['id']);
     $studentName = (string) ($existingProject['student_name'] ?? $user['full_name']);
     $canManagePublication = $user['role'] === 'student' && $projectOwnerId === (int) $user['id'];
-    $isPublic = $canManagePublication ? $requestedPublic : (int) ($existingProject['is_public'] ?? 0);
     $wasSubmitted = $existingProject && (int) $existingProject['is_submitted'] === 1;
+    $isPublic = $canManagePublication ? $requestedPublic : (int) ($existingProject['is_public'] ?? 0);
+    if ($isSubmitted === 0) {
+        $isPublic = 0;
+    }
 
     if ($title === '' || mb_strlen($title) > 180) {
-        $errors[] = 'Rubrik är obligatorisk och får vara högst 180 tecken.';
+        $errors[] = 'Titel är obligatorisk och får vara högst 180 tecken.';
     }
 
     if (mb_strlen($subtitle) > 180) {
-        $errors[] = 'Underrubriken får vara högst 180 tecken.';
+        $errors[] = 'Undertiteln får vara högst 180 tecken.';
     }
 
     if ($supervisorUserId <= 0) {
@@ -89,6 +92,10 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
 
     if ($isSubmitted === 1 && !$wasSubmitted && empty($_POST['confirm_submission'])) {
         $errors[] = 'Bekräfta att du vill lämna in arbetet slutgiltigt.';
+    }
+
+    if ($canManagePublication && $requestedPublic === 1 && $isSubmitted === 0) {
+        $errors[] = 'Arbetet kan bara göras publikt när slutlig inlämning är ikryssad.';
     }
 
     $upload = validate_pdf_upload($_FILES['pdf_file'] ?? [], $existingProject === null);

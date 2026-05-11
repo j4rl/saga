@@ -36,12 +36,16 @@ $otherDraft['supervisor'] = 'Erik Larare';
 $submittedByOtherTeacher = $otherDraft;
 $submittedByOtherTeacher['is_submitted'] = 1;
 
-$publicProject = $otherDraft;
-$publicProject['is_public'] = 1;
+$publicDraft = $otherDraft;
+$publicDraft['is_public'] = 1;
+
+$publicProject = $publicDraft;
+$publicProject['is_submitted'] = 1;
 
 check(can_view_project($ownDraft, $teacher) === true, 'Handledare ska kunna se eget utkast.');
 check(can_view_project($otherDraft, $teacher) === false, 'Larare ska inte kunna se andra larares elevutkast.');
 check(can_view_project($submittedByOtherTeacher, $teacher) === true, 'Larare ska kunna se slutligt inlamnade arbeten pa egen skola.');
+check(can_view_project($publicDraft, null) === false, 'Publika utkast ska inte kunna visas utan inloggning.');
 check(can_view_project($publicProject, null) === true, 'Publika arbeten ska kunna visas utan inloggning.');
 check(can_unlock_project_submission($submittedByOtherTeacher, $teacher) === false, 'Larare ska inte kunna lasa upp andras inlamningar.');
 

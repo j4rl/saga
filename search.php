@@ -31,7 +31,7 @@ require_once __DIR__ . '/includes/header.php';
     <form class="search-panel search-panel-compact search-panel-advanced" action="search.php" method="get">
         <div class="search-main-row">
             <div class="field field-grow">
-                <label for="q">Sök smart i rubrik, kategori, handledare, abstract och sammanfattning</label>
+                <label for="q">Sök smart i titel, kategori, handledare, abstract och sammanfattning</label>
                 <input id="q" name="q" type="search" value="<?= h($query) ?>" placeholder="Exempel: Spel med Unity">
             </div>
 
@@ -47,7 +47,7 @@ require_once __DIR__ . '/includes/header.php';
                         <option value="relevance" <?= $sort === 'relevance' ? 'selected' : '' ?>>Relevans</option>
                         <option value="updated_desc" <?= $sort === 'updated_desc' ? 'selected' : '' ?>>Senast uppdaterad</option>
                         <option value="submitted_desc" <?= $sort === 'submitted_desc' ? 'selected' : '' ?>>Senast inlämnad</option>
-                        <option value="title_asc" <?= $sort === 'title_asc' ? 'selected' : '' ?>>Rubrik A-Ö</option>
+                        <option value="title_asc" <?= $sort === 'title_asc' ? 'selected' : '' ?>>Titel A-Ö</option>
                         <option value="school_asc" <?= $sort === 'school_asc' ? 'selected' : '' ?>>Skola A-Ö</option>
                         <option value="category_asc" <?= $sort === 'category_asc' ? 'selected' : '' ?>>Kategori A-Ö</option>
                     </select>
@@ -131,8 +131,9 @@ require_once __DIR__ . '/includes/header.php';
                                 <p class="subtitle"><?= h($project['subtitle']) ?></p>
                             <?php endif; ?>
                         </div>
-                        <span class="status-pill <?= (int) $project['is_public'] === 1 ? 'status-public' : 'status-private' ?>">
-                            <?= (int) $project['is_public'] === 1 ? 'Publik' : 'Intern' ?>
+                        <?php $isEffectivelyPublic = (int) $project['is_public'] === 1 && (int) $project['is_submitted'] === 1; ?>
+                        <span class="status-pill <?= $isEffectivelyPublic ? 'status-public' : 'status-private' ?>">
+                            <?= $isEffectivelyPublic ? 'Publik' : 'Intern' ?>
                         </span>
                     </div>
                     <p class="meta">

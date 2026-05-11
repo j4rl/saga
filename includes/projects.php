@@ -39,7 +39,7 @@ function get_project_for_student(mysqli $conn, int $userId): ?array
 
 function can_view_project(array $project, ?array $viewer): bool
 {
-    if ((int) $project['is_public'] === 1) {
+    if ((int) $project['is_public'] === 1 && (int) $project['is_submitted'] === 1) {
         return true;
     }
 
@@ -144,7 +144,7 @@ function get_project_version(mysqli $conn, int $versionId): ?array
 function add_visibility_sql(?array $viewer, array &$where, string &$types, array &$params, bool $teacherLimitedSearch = true): void
 {
     if (!$viewer) {
-        $where[] = 'p.is_public = 1';
+        $where[] = '(p.is_public = 1 AND p.is_submitted = 1)';
         return;
     }
 
@@ -170,7 +170,7 @@ function add_visibility_sql(?array $viewer, array &$where, string &$types, array
         return;
     }
 
-    $where[] = 'p.is_public = 1';
+    $where[] = '(p.is_public = 1 AND p.is_submitted = 1)';
 }
 
 function normalize_search_text(string $text): string
@@ -638,7 +638,7 @@ function latest_public_projects(mysqli $conn, int $limit = 5): array
          INNER JOIN users u ON u.id = p.user_id
          INNER JOIN categories c ON c.id = p.category_id
          LEFT JOIN users su ON su.id = p.supervisor_user_id
-         WHERE p.is_public = 1
+         WHERE p.is_public = 1 AND p.is_submitted = 1
          ORDER BY p.updated_at DESC, p.id DESC
          LIMIT ?',
         'i',

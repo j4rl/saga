@@ -119,12 +119,12 @@ require_once __DIR__ . '/includes/header.php';
             </div>
 
             <div class="field">
-                <label for="title">Rubrik</label>
+                <label for="title">Titel</label>
                 <input id="title" name="title" type="text" maxlength="180" required value="<?= h($formData['title']) ?>" <?= $canEditContent ? '' : 'disabled' ?>>
             </div>
 
             <div class="field">
-                <label for="subtitle">Underrubrik</label>
+                <label for="subtitle">Undertitel</label>
                 <input id="subtitle" name="subtitle" type="text" maxlength="180" value="<?= h($formData['subtitle']) ?>" <?= $canEditContent ? '' : 'disabled' ?>>
             </div>
 
@@ -196,12 +196,12 @@ require_once __DIR__ . '/includes/header.php';
 
         <div class="toggle-row">
             <label class="check-option">
-                <input type="checkbox" name="is_public" value="1" <?= (int) $formData['isPublic'] === 1 ? 'checked' : '' ?> <?= $canManagePublication ? '' : 'disabled' ?>>
-                <span>Gör arbetet sökbart och synligt för andra</span>
+                <input type="checkbox" name="is_public" value="1" <?= (int) $formData['isPublic'] === 1 ? 'checked' : '' ?> <?= $canManagePublication ? '' : 'disabled' ?> data-public-requires-submission>
+                <span>Gör arbetet sökbart och synligt för andra. Kräver slutlig inlämning.</span>
             </label>
 
             <label class="check-option">
-                <input type="checkbox" name="is_submitted" value="1" <?= (int) $formData['isSubmitted'] === 1 ? 'checked' : '' ?>>
+                <input type="checkbox" name="is_submitted" value="1" <?= (int) $formData['isSubmitted'] === 1 ? 'checked' : '' ?> data-submission-toggle>
                 <span><?= $canEditContent ? 'Lämna in slutgiltigt. När detta är sparat kan eleven inte ändra arbetet.' : 'Slutlig inlämning. Avmarkera för att låsa upp elevredigering.' ?></span>
             </label>
         </div>
@@ -210,7 +210,7 @@ require_once __DIR__ . '/includes/header.php';
             <div class="submission-checklist">
                 <h2>Kontrollera före slutlig inlämning</h2>
                 <ul class="checklist">
-                    <li>Rubrik, kategori, handledare, abstract och sammanfattning är ifyllda.</li>
+                    <li>Titel, kategori, handledare, abstract och sammanfattning är ifyllda.</li>
                     <li>PDF-filen är rätt version och innehåller inga uppgifter som inte ska delas.</li>
                     <li>Synlighet är vald medvetet. Bara eleven kan göra arbetet publikt.</li>
                 </ul>

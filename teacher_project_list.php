@@ -23,7 +23,7 @@ if ($format === 'csv') {
 
     $output = fopen('php://output', 'wb');
     fwrite($output, "\xEF\xBB\xBF");
-    fputcsv($output, ['Elev', 'Rubrik', 'Underrubrik', 'Kategori', 'Handledare', 'Status', 'Inlämnad'], ';');
+    fputcsv($output, ['Elev', 'Titel', 'Undertitel', 'Kategori', 'Handledare', 'Status', 'Inlämnad'], ';');
 
     foreach ($results['rows'] as $project) {
         fputcsv(
@@ -77,7 +77,7 @@ if ($format === 'html' && isset($_GET['download'])) {
         <thead>
         <tr>
             <th>Elev</th>
-            <th>Rubrik</th>
+            <th>Titel</th>
             <th>Kategori</th>
             <th>Handledare</th>
             <th>Status</th>

@@ -67,6 +67,11 @@ Senast genomgånget: 2026-05-06.
 
 ## Lägre prioritet
 
+- [x] Hindra publicering innan slutlig inlämning.
+  - Servern sparar aldrig `is_public = 1` när `is_submitted = 0`.
+  - Publika sökningar och direktvisning kräver både publik och slutligt inlämnad status.
+  - Upplåsning av slutlig inlämning gör arbetet icke-publikt igen.
+
 - [x] Förbättra elevens inlämningsflöde.
   - `project_edit.php` visar checklista inför slutlig inlämning.
   - Servern kräver bekräftelse innan en ny slutlig inlämning sparas.

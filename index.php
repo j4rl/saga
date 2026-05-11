@@ -35,7 +35,7 @@ require_once __DIR__ . '/includes/header.php';
         <form class="search-panel search-panel-advanced" action="search.php" method="get">
             <div class="search-main-row">
                 <div class="field field-grow">
-                    <label for="q">Sök smart i rubrik, kategori, handledare, abstract och sammanfattning</label>
+                    <label for="q">Sök smart i titel, kategori, handledare, abstract och sammanfattning</label>
                     <input id="q" name="q" type="search" placeholder="Exempel: Spel med Unity">
                 </div>
 
@@ -51,7 +51,7 @@ require_once __DIR__ . '/includes/header.php';
                             <option value="relevance" selected>Relevans</option>
                             <option value="updated_desc">Senast uppdaterad</option>
                             <option value="submitted_desc">Senast inlämnad</option>
-                            <option value="title_asc">Rubrik A-Ö</option>
+                            <option value="title_asc">Titel A-Ö</option>
                             <option value="school_asc">Skola A-Ö</option>
                             <option value="category_asc">Kategori A-Ö</option>
                         </select>

@@ -44,7 +44,7 @@ require_once __DIR__ . '/includes/header.php';
         <input type="hidden" name="view" value="<?= h($view) ?>">
         <div class="field field-grow">
             <label for="q">Sök i aktuell lista</label>
-            <input id="q" name="q" type="search" value="<?= h($query) ?>" placeholder="Rubrik, elev, handledare eller sammanfattning">
+            <input id="q" name="q" type="search" value="<?= h($query) ?>" placeholder="Titel, elev, handledare eller sammanfattning">
         </div>
         <div class="field">
             <label for="sort">Sortera</label>
@@ -53,7 +53,7 @@ require_once __DIR__ . '/includes/header.php';
                 <option value="submitted_desc" <?= $sort === 'submitted_desc' ? 'selected' : '' ?>>Senast inlämnad</option>
                 <option value="status_desc" <?= $sort === 'status_desc' ? 'selected' : '' ?>>Status</option>
                 <option value="student_asc" <?= $sort === 'student_asc' ? 'selected' : '' ?>>Elev A-Ö</option>
-                <option value="title_asc" <?= $sort === 'title_asc' ? 'selected' : '' ?>>Rubrik A-Ö</option>
+                <option value="title_asc" <?= $sort === 'title_asc' ? 'selected' : '' ?>>Titel A-Ö</option>
             </select>
         </div>
         <button class="button button-primary" type="submit">Sök</button>
@@ -79,7 +79,7 @@ require_once __DIR__ . '/includes/header.php';
             <table class="data-table">
                 <thead>
                 <tr>
-                    <th>Rubrik</th>
+                    <th>Titel</th>
                     <th>Elev</th>
                     <th>Handledare</th>
                     <th>Kategori</th>

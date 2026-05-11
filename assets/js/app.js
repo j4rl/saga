@@ -88,6 +88,22 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const publicCheckbox = document.querySelector('[data-public-requires-submission]');
+  const submittedCheckbox = document.querySelector('[data-submission-toggle]');
+  if (publicCheckbox && submittedCheckbox) {
+    const validatePublication = () => {
+      if (publicCheckbox.checked && !submittedCheckbox.checked) {
+        publicCheckbox.setCustomValidity('Arbetet kan bara göras publikt när slutlig inlämning är ikryssad.');
+      } else {
+        publicCheckbox.setCustomValidity('');
+      }
+    };
+
+    publicCheckbox.addEventListener('change', validatePublication);
+    submittedCheckbox.addEventListener('change', validatePublication);
+    validatePublication();
+  }
+
   const categoryInput = document.querySelector('[data-category-autocomplete]');
   if (categoryInput) {
     const list = document.getElementById(categoryInput.getAttribute('list'));

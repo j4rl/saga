@@ -38,8 +38,9 @@ require_once __DIR__ . '/includes/header.php';
                     <?php endif; ?>
                 </div>
                 <div class="status-stack">
-                    <span class="status-pill <?= (int) $project['is_public'] === 1 ? 'status-public' : 'status-private' ?>">
-                        <?= (int) $project['is_public'] === 1 ? 'Publik' : 'Inte publik' ?>
+                    <?php $isEffectivelyPublic = (int) $project['is_public'] === 1 && (int) $project['is_submitted'] === 1; ?>
+                    <span class="status-pill <?= $isEffectivelyPublic ? 'status-public' : 'status-private' ?>">
+                        <?= $isEffectivelyPublic ? 'Publik' : 'Inte publik' ?>
                     </span>
                     <span class="status-pill <?= (int) $project['is_submitted'] === 1 ? 'status-submitted' : 'status-draft' ?>">
                         <?= (int) $project['is_submitted'] === 1 ? 'Inlämnat' : 'Utkast' ?>

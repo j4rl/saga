@@ -97,9 +97,11 @@ Följande områden har granskats:
 **Lösning i SAGA**
 
 - Endast eleven som äger arbetet kan ändra `is_public`.
+- Ett arbete kan bara behandlas som publikt om både `is_public = 1` och `is_submitted = 1`.
 - Lärare, skoladmin och superadmin kan inte göra ett elevägt arbete publikt via redigeringsflödet.
 - Icke-publika utkast visas inte för obehöriga roller.
 - Slutlig inlämning kräver explicit bekräftelse.
+- Om en inlämning låses upp sätts publicering samtidigt till icke-publik.
 - Inlämningsflödet visar checklista innan arbetet låses.
 - Systemet teknikkontrollerar PDF-filen, men gör inte innehållsmoderering.
 

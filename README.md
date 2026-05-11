@@ -24,7 +24,7 @@ SAGA stödjer hela flödet från registrering till arkivering:
 - Inlämnade arbeten låses så att innehållet inte ändras i efterhand utan upplåsning.
 - Handledare kan följa och ge återkoppling på sina elevers arbeten.
 - Lärare kan se relevanta arbeten inom sin skola.
-- Eleven styr själv om ett arbete ska vara publikt.
+- Eleven styr själv om ett slutligt inlämnat arbete ska vara publikt.
 - Publika arbeten kan sökas av besökare.
 - Superadmin kan hantera skolor, användare, kategorier, driftkontroll och auditlogg.
 
@@ -34,7 +34,7 @@ SAGA stödjer hela flödet från registrering till arkivering:
 
 Ett arbete kan vara färdigt och inlämnat utan att vara publikt. SAGA skiljer därför på **inlämning** och **publicering**.
 
-Det är viktigt eftersom en elev kan behöva lämna in ett arbete för bedömning utan att samtidigt vilja göra det synligt för alla. Lärare kan låsa upp handledda arbeten vid behov, men de kan inte göra elevens arbete publikt åt eleven.
+Det är viktigt eftersom en elev kan behöva lämna in ett arbete för bedömning utan att samtidigt vilja göra det synligt för alla. Ett arbete kan inte vara publikt förrän slutlig inlämning är ikryssad. Lärare kan låsa upp handledda arbeten vid behov, men de kan inte göra elevens arbete publikt åt eleven.
 
 ### Roller begränsar åtkomsten
 
@@ -143,7 +143,7 @@ Det är centralt i SAGA eftersom skolmiljön innehåller flera nivåer av ansvar
 
 **Publicering** betyder att ett arbete blir synligt för andra än de personer som behöver se det för handledning eller administration.
 
-I SAGA är publicering separerad från inlämning. Det skyddar eleven från att ett arbete blir offentligt bara för att det är färdigt för bedömning.
+I SAGA kräver publicering att arbetet först är slutligt inlämnat. Publicering är ändå separerad från inlämning: ett inlämnat arbete kan vara privat, men ett utkast kan inte vara publikt.
 
 ### CSRF
 
