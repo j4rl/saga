@@ -23,12 +23,14 @@ Senast genomgånget: 2026-05-11.
   - `includes/functions.php` använder `mail()`, vilket ofta är opålitligt i produktion.
   - Lägg till SMTP-konfiguration, tydligare felhantering och gärna kö/retry för notifieringar.
 
-- [ ] Sätt en fast `APP_BASE_URL` i produktionsmiljö.
-  - Återställningslänkar kan nu använda `APP_BASE_URL` om den definieras.
-  - Utan den faller systemet tillbaka på sanerad `Host`-header, vilket är rimligt lokalt men sämre för produktion bakom proxy/CDN.
+- [x] Gör `APP_BASE_URL` konfigurerbar för produktion.
+  - Installeraren kan skriva `APP_BASE_URL` till `config/installed.php`.
+  - `config/app.php` kan också läsa `SAGA_APP_BASE_URL` eller `APP_BASE_URL` från miljön.
+  - Utan fast URL faller systemet tillbaka på sanerad `Host`-header för lokal utveckling.
 
-- [ ] Lägg till rate limiting för lösenordsåterställning.
-  - Flödet svarar neutralt och token lagras säkert, men begäran bör begränsas per konto/IP för att minska e-postspam och missbruk.
+- [x] Lägg till rate limiting för lösenordsåterställning.
+  - `password_reset_attempts` begränsar begäran per identifierare/IP och per IP.
+  - Flödet svarar fortsatt neutralt så konton inte kan räknas upp.
 
 - [x] Lägg till automatiska tester för behörigheter.
   - `tests/security_checks.php` testar centrala regler för elev/lärare, privata utkast, publika arbeten, redigering och upplåsning.
@@ -40,6 +42,12 @@ Senast genomgånget: 2026-05-11.
   - `health.php` varnar om `APP_BASE_URL` saknas.
 
 ## Mellanprioritet
+
+- [x] Stöd inlämning när tidigare handledare inte längre arbetar på skolan.
+  - Eleven kan ange handledarens namn manuellt i projektformuläret.
+  - Inlämnade arbeten med manuell handledare läggs på den aktiva lärare på samma skola som har flest handledda arbeten i samma kategori.
+  - Vid lika antal kategoriarbeten väljer systemet deterministiskt en lärare.
+  - Publik visning kräver fortfarande slutlig inlämning och godkännande.
 
 - [x] Skapa en riktig migreringsstrategi för databasen.
   - `tools/migrate.php` kör versionshanterade SQL-filer från `database/migrations/`.
@@ -71,19 +79,25 @@ Senast genomgånget: 2026-05-11.
   - E-postfel och hälsokontrollfel loggas.
 
 - [x] Se över kategorihantering.
-  - `categories.php` låter superadmin byta namn på kategorier och slå ihop dubbletter.
+  - `categories.php` låter superadmin skapa kategorier, byta namn, ta bort tomma kategorier och slå ihop dubbletter.
+  - Ihopslagning flyttar alla arbeten från gammal kategori till ny kategori, inklusive inlämnade arbeten.
 
 - [x] Lägg till lagringspolicy för PDF-versioner och logotyper.
   - Retention-konstanter finns i `config/app.php`.
   - `tools/cleanup_storage.php` kör torrkörning som standard och kan rensa med `--apply`.
 
 - [x] Applicera hela skolans färgtema i gränssnittet.
-  - Tidigare användes främst primär- och länkfärg trots att bakgrund, yta och text sparades.
-  - `school_theme_css_vars()` applicerar nu även `theme_bg`, `theme_surface` och `theme_text`.
+  - Skoladmin väljer två färger, därefter räknar systemet fram bakgrund, yta, text och länkar.
+  - `school_theme_css_vars()` genererar separata paletter för ljust, auto och mörkt tema.
 
 - [x] Lägg till kontrastkontroll för skolans egna färgtema.
-  - Servern kräver minst 4.5:1 kontrast för text mot bakgrund/yta och länkfärg mot bakgrund/yta.
-  - Mörkt läge använder kontrastsäkra accentfärger på systemets mörka ytor, så ett ljust skoltema inte gör mörkt läge oläsligt.
+  - Servern kontrollerar att beräknade ljusa och mörka paletter når minst 4.5:1 för text och länkar.
+  - Svåra färgval justeras matematiskt till läsbara text- och länkfärger i stället för att användaren behöver välja alla färger själv.
+
+- [x] Visa skolans logotyp i gränssnittet utan att störa layouten.
+  - Headern visar uppladdad skollogotyp för inloggade användare.
+  - Logotypen ligger i en fast yta och skalas med `object-fit: contain`.
+  - Skoladmin får förhandsvisning direkt när en ny logotyp väljs.
 
 ## Lägre prioritet
 

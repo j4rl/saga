@@ -24,6 +24,7 @@ SAGA stödjer hela flödet från registrering till arkivering:
 - Inlämnade arbeten låses så att innehållet inte ändras i efterhand utan upplåsning.
 - Handledare kan följa och ge återkoppling på sina elevers arbeten.
 - Lärare kan se relevanta arbeten inom sin skola.
+- Om en tidigare handledare inte längre arbetar på skolan kan eleven ange handledarens namn manuellt. Godkännandet läggs då på den aktiva lärare som har flest handledda arbeten i samma kategori.
 - Eleven styr själv om ett slutligt inlämnat arbete ska vara publikt.
 - Publika arbeten kan sökas av besökare.
 - Superadmin kan hantera skolor, användare, kategorier, driftkontroll och auditlogg.
@@ -93,7 +94,7 @@ SAGA är starkare än en enkel MVP, men vissa beslut hör hemma i drift och för
 - Uppladdade filer bör helst lagras utanför webbroten om servermiljön tillåter det.
 - PDF-filer bör virusskannas eller saneras i miljöer där många okända filer laddas upp.
 - Skolan bör ta ställning till om publika arbeten ska granskas innan de blir synliga.
-- Egna skolteman kontrastkontrolleras, men bör fortfarande granskas visuellt med skolans logotyp och faktiska innehåll.
+- Egna skolteman räknas fram från två valda färger och kontrastkontrolleras, men bör fortfarande granskas visuellt med skolans logotyp och faktiska innehåll.
 - Backup, gallring och incidentrutiner bör dokumenteras för den miljö där SAGA körs.
 
 ## Teknisk översikt
@@ -115,11 +116,13 @@ Viktiga delar:
 
 Efter installation skapas `config/installed.php` lokalt med databasuppgifter. Den filen ska inte checkas in och bör skyddas med filrättigheter.
 
-För produktion rekommenderas även att definiera:
+Installeraren har ett frivilligt fält för publik adress. För produktion rekommenderas att sätta en fast bas-URL, antingen i `config/installed.php`:
 
 ```php
 define('APP_BASE_URL', 'https://exempel.se/saga');
 ```
+
+eller via miljövariabeln `SAGA_APP_BASE_URL` eller `APP_BASE_URL`.
 
 Om `APP_BASE_URL` saknas använder SAGA en validerad `Host`-header för återställningslänkar. Det fungerar i lokal utveckling, men en fast bas-URL är tydligare och säkrare bakom proxy, lastbalanserare eller CDN.
 

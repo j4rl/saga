@@ -47,11 +47,12 @@ Följande områden har granskats:
 - Lösenordsåterställning sker via engångstoken i `password_resets`.
 - Återställningssidan svarar neutralt: den avslöjar inte om ett konto eller en e-postadress finns.
 - Återställningstoken lagras som hash och har utgångstid.
+- Begäran om lösenordsåterställning begränsas i `password_reset_attempts`, både per identifierare/IP och per IP.
 - Återställningslänkar kan använda fast `APP_BASE_URL`. Om den saknas används en validerad `Host`-header.
 
 **Kvarstående risk**
 
-Själva begäran om lösenordsåterställning saknar separat rate limiting. Det bör införas per konto/IP för att minska risken för e-postspam och missbruk.
+SAGA har tekniska spärrar mot massutskick av återställningsmail, men e-postleveransen bör ändå flyttas till SMTP med tydlig leveransloggning och felhantering inför bred produktion.
 
 ## Sessionshantering
 
@@ -88,6 +89,8 @@ Själva begäran om lösenordsåterställning saknar separat rate limiting. Det 
   - slutgiltigt inlämnade arbeten på den egna skolan.
 - Lärare får inte se andra lärares icke-inlämnade elevutkast.
 - Lärare får bara låsa upp slutlig inlämning om de är handledare för arbetet.
+- Om tidigare handledare inte längre finns som aktiv användare kan eleven ange handledarnamn manuellt.
+- Sådana inlämnade arbeten kan godkännas av den aktiva lärare på samma skola som har flest handledda arbeten i samma kategori. Vid lika antal väljer systemet deterministiskt en lärare.
 - Namnbaserad fallback för handledare gäller bara inom lärarens egen skola.
 - Skoladministratör är begränsad till den egna skolan.
 - Superadmin har systemövergripande behörighet.
@@ -257,6 +260,8 @@ SAGA använder fortfarande PHP `mail()`. För produktion bör SMTP med TLS, aute
 **Lösning i SAGA**
 
 - `app_base_url()` använder `APP_BASE_URL` när den är definierad.
+- Installeraren kan skriva `APP_BASE_URL` till `config/installed.php`.
+- `config/app.php` kan läsa `SAGA_APP_BASE_URL` eller `APP_BASE_URL` från miljön.
 - Om `APP_BASE_URL` saknas valideras requestens host strikt innan den används.
 - Ogiltig eller radbruten host faller tillbaka till `localhost`.
 - E-postavsändarens domän hämtas från `APP_BASE_URL` eller sanerad host.
@@ -279,6 +284,7 @@ I produktion bör `APP_BASE_URL` alltid sättas explicit. Fallback till sanerad 
 - `tools/migrate.php` kör versionshanterade SQL-migreringar från `database/migrations/`.
 - `schema_migrations` spårar applicerade migreringar.
 - Migreringar stödjer tabellprefix via `{{prefix}}`.
+- Nya installationer och migreringar skapar även `password_reset_attempts` för spärr av återställningsbegäran.
 - `health.php` visar driftkontroller för superadmin:
   - databas,
   - PHP `mysqli`,
@@ -304,17 +310,17 @@ I produktion bör `APP_BASE_URL` alltid sättas explicit. Fallback till sanerad 
 - Fokusmarkeringar är förstärkta.
 - Ikonbaserad utloggning är en riktig knapp i ett POST-formulär.
 - Formulär använder label-element och tydliga felmeddelanden.
-- Skolans anpassade tema applicerar nu primär färg, länkfärg, bakgrund, yta och textfärg.
-- Skolans anpassade tema valideras med minst 4.5:1 kontrast för text och länkar i ljust läge.
-- Mörkt läge använder systemets mörka ytor och kontrastjusterade skolaccentfärger, så ett ljust skoltema inte gör mörkt läge oläsligt.
+- Skolans anpassade tema räknas fram från två valda färger.
+- Beräknade ljusa och mörka paletter valideras med minst 4.5:1 kontrast för text och länkar.
+- Svåra färgval justeras till läsbara text- och länkfärger i stället för att skoladmin behöver välja varje färg manuellt.
+- Uppladdad skollogotyp visas i header och förhandsvisning, men begränsas till fasta ytor med `object-fit: contain`.
 
 ## Kvarstående rekommendationer
 
 Följande förbättringar bör prioriteras innan bred produktion:
 
 - Inför SMTP med TLS och autentisering i stället för PHP `mail()`.
-- Sätt `APP_BASE_URL` i produktion.
-- Lägg till rate limiting för lösenordsåterställning.
+- Sätt ett produktionsvärde för `APP_BASE_URL` via installeraren, `config/installed.php` eller miljövariabel.
 - Flytta `UPLOAD_DIR` utanför webbroten om servermiljön tillåter det.
 - Lägg till virusskanning eller PDF-sanitization för uppladdade filer.
 - Inför granskningsflöde innan arbeten blir publika.

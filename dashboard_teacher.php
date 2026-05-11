@@ -57,7 +57,7 @@ require_once __DIR__ . '/includes/header.php';
 <section class="section section-tight">
     <p class="eyebrow">Lärarpanel</p>
     <h1>Gymnasiearbeten</h1>
-    <p class="muted">Standardvyn visar arbeten där du är angiven som handledare på <?= h($user['school_name']) ?>.</p>
+    <p class="muted">Standardvyn visar arbeten där du är angiven som handledare på <?= h($user['school_name']) ?>. Arbeten med tidigare handledare läggs på läraren som har flest handledda arbeten i samma kategori.</p>
 
     <nav class="filter-tabs" aria-label="Välj arbetslista">
         <a class="<?= $view === 'own' ? 'active' : '' ?>" href="dashboard_teacher.php?<?= h(http_build_query(['view' => 'own', 'sort' => $sort])) ?>">
@@ -141,7 +141,7 @@ require_once __DIR__ . '/includes/header.php';
                             </span>
                         </td>
                         <td>
-                            <?php if (can_approve_project($project, $user)): ?>
+                            <?php if (can_approve_project_for_teacher($conn, $project, $user)): ?>
                                 <form class="approval-form" method="post" action="dashboard_teacher.php">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="action" value="set_approval">

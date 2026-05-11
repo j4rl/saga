@@ -40,6 +40,7 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
     $title = trim((string) ($_POST['title'] ?? ''));
     $subtitle = trim((string) ($_POST['subtitle'] ?? ''));
     $supervisorUserId = (int) ($_POST['supervisor_user_id'] ?? 0);
+    $manualSupervisorName = trim((string) ($_POST['supervisor_name_manual'] ?? ''));
     $categoryName = normalize_category_name((string) ($_POST['category_name'] ?? ''));
     $abstractText = trim((string) ($_POST['abstract_text'] ?? ''));
     $summaryText = trim((string) ($_POST['summary_text'] ?? ''));
@@ -68,7 +69,9 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
     }
 
     if ($supervisorUserId <= 0) {
-        $errors[] = 'Välj handledare.';
+        if ($manualSupervisorName === '' || mb_strlen($manualSupervisorName, 'UTF-8') > 120) {
+            $errors[] = 'Ange handledarens namn, högst 120 tecken, om handledaren inte längre finns som aktiv lärare.';
+        }
     } else {
         $teacher = fetch_school_teacher($conn, $supervisorUserId, $projectSchoolId);
         if (!$teacher) {
@@ -110,7 +113,7 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
         return [
             'ok' => false,
             'errors' => $errors,
-            'data' => compact('title', 'subtitle', 'supervisorUserId', 'categoryName', 'abstractText', 'summaryText', 'isPublic', 'isSubmitted'),
+            'data' => compact('title', 'subtitle', 'supervisorUserId', 'manualSupervisorName', 'categoryName', 'abstractText', 'summaryText', 'isPublic', 'isSubmitted'),
         ];
     }
 
@@ -131,7 +134,8 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
                     ? (string) $existingProject['submitted_at']
                     : date('Y-m-d H:i:s');
         }
-        $supervisorName = (string) $teacher['full_name'];
+        $supervisorName = $teacher ? (string) $teacher['full_name'] : $manualSupervisorName;
+        $storedSupervisorUserId = $teacher ? $supervisorUserId : null;
         $categoryId = (int) $category['id'];
 
         if ($existingProject) {
@@ -151,7 +155,7 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
                         $subtitle,
                         $categoryId,
                         $supervisorName,
-                        $supervisorUserId,
+                        $storedSupervisorUserId,
                         $abstractText,
                         $summaryText,
                         $storedFile['stored_name'],
@@ -184,7 +188,7 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
                         $subtitle,
                         $categoryId,
                         $supervisorName,
-                        $supervisorUserId,
+                        $storedSupervisorUserId,
                         $abstractText,
                         $summaryText,
                         $isPublic,
@@ -225,7 +229,7 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
                     $title,
                     $subtitle,
                     $supervisorName,
-                    $supervisorUserId,
+                    $storedSupervisorUserId,
                     $abstractText,
                     $summaryText,
                     $pdfFilename,
@@ -251,15 +255,27 @@ function handle_project_submission(mysqli $conn, array $user, ?array $existingPr
 
         $conn->commit();
 
-        if ($isSubmitted === 1 && !$wasSubmitted && $teacher) {
-            $teacherUser = fetch_one_prepared($conn, 'SELECT email FROM users WHERE id = ? LIMIT 1', 'i', [(int) $teacher['id']]);
-            if ($teacherUser && !empty($teacherUser['email'])) {
-                send_email_notification(
-                    $conn,
-                    (string) $teacherUser['email'],
-                    'Gymnasiearbete slutgiltigt inlämnat',
-                    $studentName . ' har lämnat in "' . $title . '" slutgiltigt i SAGA.'
-                );
+        if ($isSubmitted === 1 && !$wasSubmitted) {
+            if ($teacher) {
+                $teacherUser = fetch_one_prepared($conn, 'SELECT email FROM users WHERE id = ? LIMIT 1', 'i', [(int) $teacher['id']]);
+                if ($teacherUser && !empty($teacherUser['email'])) {
+                    send_email_notification(
+                        $conn,
+                        (string) $teacherUser['email'],
+                        'Gymnasiearbete slutgiltigt inlämnat',
+                        $studentName . ' har lämnat in "' . $title . '" slutgiltigt i SAGA.'
+                    );
+                }
+            } else {
+                $approverTeacher = fetch_category_approver_teacher($conn, $projectSchoolId, $categoryId, $projectId);
+                if ($approverTeacher && !empty($approverTeacher['email'])) {
+                    send_email_notification(
+                        $conn,
+                        (string) $approverTeacher['email'],
+                        'Gymnasiearbete väntar på kategorigodkännande',
+                        $studentName . ' har lämnat in "' . $title . '" med tidigare handledare ' . $supervisorName . '. Arbetet har lagts på dig eftersom du har flest handledda arbeten i samma kategori.'
+                    );
+                }
             }
         }
 

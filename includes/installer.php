@@ -29,6 +29,7 @@ function installer_create_schema(mysqli $conn, string $prefix, string $schoolNam
     $schemaMigrations = installer_table($prefix, 'schema_migrations');
     $projectFeedback = installer_table($prefix, 'project_feedback');
     $passwordResets = installer_table($prefix, 'password_resets');
+    $passwordResetAttempts = installer_table($prefix, 'password_reset_attempts');
 
     $statements = [
         "CREATE TABLE IF NOT EXISTS $schools (
@@ -216,6 +217,17 @@ function installer_create_schema(mysqli $conn, string $prefix, string $schoolNam
             INDEX idx_password_resets_user (user_id),
             INDEX idx_password_resets_expires (expires_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_swedish_ci",
+        "CREATE TABLE IF NOT EXISTS $passwordResetAttempts (
+            attempt_key CHAR(64) NOT NULL PRIMARY KEY,
+            scope VARCHAR(24) NOT NULL,
+            request_count INT UNSIGNED NOT NULL DEFAULT 0,
+            locked_until DATETIME NULL,
+            last_requested_at DATETIME NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_password_reset_attempts_locked_until (locked_until),
+            INDEX idx_password_reset_attempts_scope_updated (scope, updated_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_swedish_ci",
     ];
 
     foreach ($statements as $sql) {
@@ -265,6 +277,8 @@ function installer_create_schema(mysqli $conn, string $prefix, string $schoolNam
 
 function installer_config_contents(array $config): string
 {
+    $appBaseUrl = rtrim((string) ($config['app_base_url'] ?? ''), '/');
+
     return "<?php\n"
         . "declare(strict_types=1);\n\n"
         . "define('DB_HOST', " . var_export($config['host'], true) . ");\n"
@@ -273,6 +287,7 @@ function installer_config_contents(array $config): string
         . "define('DB_PASS', " . var_export($config['pass'], true) . ");\n"
         . "define('DB_NAME', " . var_export($config['name'], true) . ");\n"
         . "define('DB_TABLE_PREFIX', " . var_export($config['prefix'], true) . ");\n"
+        . ($appBaseUrl !== '' ? "define('APP_BASE_URL', " . var_export($appBaseUrl, true) . ");\n" : '')
         . "define('SAGA_INSTALLED_AT', " . var_export(date(DATE_ATOM), true) . ");\n";
 }
 
@@ -292,6 +307,7 @@ function render_installer(): never
         'db_user' => '',
         'db_pass' => '',
         'table_prefix' => 'saga_',
+        'app_base_url' => '',
         'school_name' => '',
         'admin_username' => 'admin',
         'admin_name' => '',
@@ -321,6 +337,17 @@ function render_installer(): never
         }
         if (!installer_valid_prefix($form['table_prefix'])) {
             $errors[] = 'Tabellprefix får bara innehålla bokstäver, siffror och understreck.';
+        }
+        if ($form['app_base_url'] !== '') {
+            $form['app_base_url'] = rtrim($form['app_base_url'], '/');
+            $appBaseUrlParts = parse_url($form['app_base_url']);
+            if (
+                !$appBaseUrlParts
+                || !in_array($appBaseUrlParts['scheme'] ?? '', ['http', 'https'], true)
+                || empty($appBaseUrlParts['host'])
+            ) {
+                $errors[] = 'Ange en giltig publik adress med http:// eller https://, eller lämna fältet tomt.';
+            }
         }
         if ($form['school_name'] === '' || mb_strlen($form['school_name'], 'UTF-8') > 160) {
             $errors[] = 'Ange första skolans namn, högst 160 tecken.';
@@ -388,6 +415,7 @@ function render_installer(): never
                     'pass' => $form['db_pass'],
                     'name' => $form['db_name'],
                     'prefix' => $form['table_prefix'],
+                    'app_base_url' => $form['app_base_url'],
                 ]);
 
                 if (file_put_contents(INSTALL_LOCK_FILE, $config, LOCK_EX) === false) {
@@ -460,6 +488,11 @@ function render_installer(): never
             <div class="field">
                 <label for="db_pass">Databaslösenord</label>
                 <input id="db_pass" name="db_pass" type="password" value="<?= h($form['db_pass']) ?>">
+            </div>
+            <div class="field">
+                <label for="app_base_url">Publik adress</label>
+                <input id="app_base_url" name="app_base_url" type="url" value="<?= h($form['app_base_url']) ?>" placeholder="https://exempel.se/saga">
+                <p class="field-help">Används för säkra länkar i e-post, till exempel lösenordsåterställning.</p>
             </div>
         </div>
 

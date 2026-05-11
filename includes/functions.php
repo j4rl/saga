@@ -290,7 +290,7 @@ function prefix_sql_tables(string $sql): string
         return $sql;
     }
 
-    static $tables = ['schools', 'categories', 'users', 'projects', 'upload_versions', 'audit_log', 'email_notifications', 'login_attempts', 'schema_migrations', 'project_feedback', 'password_resets'];
+    static $tables = ['schools', 'categories', 'users', 'projects', 'upload_versions', 'audit_log', 'email_notifications', 'login_attempts', 'schema_migrations', 'project_feedback', 'password_resets', 'password_reset_attempts'];
     $pattern = '/(?<![A-Za-z0-9_`])(' . implode('|', $tables) . ')(?![A-Za-z0-9_`])/';
 
     return preg_replace_callback(
@@ -365,6 +365,16 @@ function default_theme_colors(): array
         'theme_bg' => '#f6f7f9',
         'theme_surface' => '#ffffff',
         'theme_text' => '#20242a',
+    ];
+}
+
+function default_theme_seed_colors(): array
+{
+    $defaults = default_theme_colors();
+
+    return [
+        'theme_primary' => $defaults['theme_primary'],
+        'theme_secondary' => $defaults['theme_secondary'],
     ];
 }
 
@@ -482,33 +492,72 @@ function adjust_color_for_contrast(string $color, array $backgrounds, float $min
     return $whitePasses ? '#ffffff' : '#000000';
 }
 
+function derive_school_theme_colors(string $primary, string $secondary): array
+{
+    $primary = normalize_hex_color($primary) ?? default_theme_colors()['theme_primary'];
+    $secondary = normalize_hex_color($secondary) ?? default_theme_colors()['theme_secondary'];
+
+    $lightBg = mix_hex_colors($primary, '#ffffff', 0.96);
+    $lightSurface = mix_hex_colors($secondary, '#ffffff', 0.985);
+    $lightTextBase = mix_hex_colors($primary, '#111827', 0.86);
+    $lightText = adjust_color_for_contrast($lightTextBase, [$lightBg, $lightSurface], 4.5);
+    $lightSecondary = adjust_color_for_contrast($secondary, [$lightBg, $lightSurface], 4.5);
+
+    $darkBg = mix_hex_colors($primary, '#05080a', 0.88);
+    $darkSurface = mix_hex_colors($secondary, '#111820', 0.84);
+    $darkTextBase = mix_hex_colors($secondary, '#f7fbfc', 0.88);
+    $darkText = adjust_color_for_contrast($darkTextBase, [$darkBg, $darkSurface], 4.5);
+    $darkPrimary = adjust_color_for_contrast($primary, [$darkBg, $darkSurface], 3.0);
+    $darkSecondary = adjust_color_for_contrast($secondary, [$darkBg, $darkSurface], 4.5);
+
+    return [
+        'light' => [
+            'theme_primary' => $primary,
+            'theme_secondary' => $lightSecondary,
+            'theme_bg' => $lightBg,
+            'theme_surface' => $lightSurface,
+            'theme_text' => $lightText,
+        ],
+        'dark' => [
+            'theme_primary' => $darkPrimary,
+            'theme_secondary' => $darkSecondary,
+            'theme_bg' => $darkBg,
+            'theme_surface' => $darkSurface,
+            'theme_text' => $darkText,
+        ],
+        'seed' => [
+            'theme_primary' => $primary,
+            'theme_secondary' => $secondary,
+        ],
+    ];
+}
+
 function validate_school_theme_colors(array $colors): array
 {
     $errors = [];
-    $required = ['theme_primary', 'theme_secondary', 'theme_bg', 'theme_surface', 'theme_text'];
+    $required = ['theme_primary', 'theme_secondary'];
 
     foreach ($required as $field) {
         if (empty($colors[$field]) || !is_hex_color($colors[$field])) {
-            return ['Alla färger i det egna temat måste anges som giltiga hex-färger.'];
+            return ['Ange två giltiga hex-färger för skolans tema.'];
         }
     }
 
+    $derived = derive_school_theme_colors($colors['theme_primary'], $colors['theme_secondary']);
     $minimumTextContrast = 4.5;
-    if (hex_color_contrast_ratio($colors['theme_text'], $colors['theme_bg']) < $minimumTextContrast) {
-        $errors[] = 'Textfärgen måste ha minst 4.5:1 kontrast mot bakgrunden.';
-    }
+    foreach (['light' => 'ljust', 'dark' => 'mörkt'] as $mode => $label) {
+        $palette = $derived[$mode];
+        if (!color_contrasts_with_all($palette['theme_text'], [$palette['theme_bg'], $palette['theme_surface']], $minimumTextContrast)) {
+            $errors[] = 'Det beräknade temat får inte tillräcklig textkontrast i ' . $label . ' läge.';
+        }
 
-    if (hex_color_contrast_ratio($colors['theme_text'], $colors['theme_surface']) < $minimumTextContrast) {
-        $errors[] = 'Textfärgen måste ha minst 4.5:1 kontrast mot ytfärgen.';
-    }
+        if (!color_contrasts_with_all($palette['theme_secondary'], [$palette['theme_bg'], $palette['theme_surface']], $minimumTextContrast)) {
+            $errors[] = 'Det beräknade temat får inte tillräcklig länkkontrast i ' . $label . ' läge.';
+        }
 
-    if (!color_contrasts_with_all($colors['theme_secondary'], [$colors['theme_bg'], $colors['theme_surface']], $minimumTextContrast)) {
-        $errors[] = 'Länkfärgen måste ha minst 4.5:1 kontrast mot både bakgrund och ytor.';
-    }
-
-    $buttonText = readable_text_color($colors['theme_primary']);
-    if (hex_color_contrast_ratio($buttonText, $colors['theme_primary']) < $minimumTextContrast) {
-        $errors[] = 'Primärfärgen måste fungera med läsbar knapptext.';
+        if (hex_color_contrast_ratio(readable_text_color($palette['theme_primary']), $palette['theme_primary']) < $minimumTextContrast) {
+            $errors[] = 'Det beräknade temat får inte tillräcklig knappkontrast i ' . $label . ' läge.';
+        }
     }
 
     return $errors;
@@ -549,19 +598,14 @@ function school_theme_css_vars(array $school): string
         return '';
     }
 
-    $colors = [];
-    foreach (array_keys(default_theme_colors()) as $field) {
-        $color = normalize_hex_color($school[$field] ?? null);
-        if (!$color) {
-            return '';
-        }
-        $colors[$field] = $color;
-    }
-
-    if (validate_school_theme_colors($colors)) {
+    $primary = normalize_hex_color($school['theme_primary'] ?? null);
+    $secondary = normalize_hex_color($school['theme_secondary'] ?? null);
+    if (!$primary || !$secondary || validate_school_theme_colors(['theme_primary' => $primary, 'theme_secondary' => $secondary])) {
         return '';
     }
 
+    $derived = derive_school_theme_colors($primary, $secondary);
+    $colors = $derived['light'];
     $lightVars = [
         '--primary' => $colors['theme_primary'],
         '--secondary' => $colors['theme_secondary'],
@@ -570,14 +614,18 @@ function school_theme_css_vars(array $school): string
         '--text' => $colors['theme_text'],
     ] + theme_support_vars($colors['theme_primary'], $colors['theme_surface'], $colors['theme_text']);
 
-    $darkBg = '#0f1418';
-    $darkSurface = '#182027';
-    $darkText = '#eef4f6';
-    $darkPrimary = adjust_color_for_contrast($colors['theme_primary'], [$darkBg, $darkSurface], 3.0);
-    $darkSecondary = adjust_color_for_contrast($colors['theme_secondary'], [$darkBg, $darkSurface], 4.5);
+    $darkColors = $derived['dark'];
+    $darkBg = $darkColors['theme_bg'];
+    $darkSurface = $darkColors['theme_surface'];
+    $darkText = $darkColors['theme_text'];
+    $darkPrimary = $darkColors['theme_primary'];
+    $darkSecondary = $darkColors['theme_secondary'];
     $darkVars = [
         '--primary' => $darkPrimary,
         '--secondary' => $darkSecondary,
+        '--bg' => $darkBg,
+        '--surface' => $darkSurface,
+        '--text' => $darkText,
     ] + theme_support_vars($darkPrimary, $darkSurface, $darkText);
 
     return css_var_block(':root[data-theme="light"],:root[data-theme="auto"]', $lightVars)
@@ -1121,12 +1169,51 @@ function fetch_categories_with_counts(mysqli $conn): array
 {
     return fetch_all_prepared(
         $conn,
-        'SELECT c.id, c.category_name, c.created_at, COUNT(p.id) AS project_count
+        'SELECT c.id, c.category_name, c.created_at,
+                COUNT(p.id) AS project_count,
+                SUM(CASE WHEN p.is_submitted = 1 THEN 1 ELSE 0 END) AS submitted_project_count
          FROM categories c
          LEFT JOIN projects p ON p.category_id = c.id
          GROUP BY c.id, c.category_name, c.created_at
          ORDER BY c.category_name'
     );
+}
+
+function count_projects_for_category(mysqli $conn, int $categoryId): array
+{
+    $row = fetch_one_prepared(
+        $conn,
+        'SELECT COUNT(*) AS total,
+                SUM(CASE WHEN is_submitted = 1 THEN 1 ELSE 0 END) AS submitted_total
+         FROM projects
+         WHERE category_id = ?',
+        'i',
+        [$categoryId]
+    );
+
+    return [
+        'total' => (int) ($row['total'] ?? 0),
+        'submitted_total' => (int) ($row['submitted_total'] ?? 0),
+    ];
+}
+
+function create_project_category(mysqli $conn, string $categoryName): array
+{
+    $categoryName = normalize_category_name($categoryName);
+    if ($categoryName === '' || mb_strlen($categoryName, 'UTF-8') > 120) {
+        return ['ok' => false, 'error' => 'Kategorinamnet måste vara 1-120 tecken.'];
+    }
+
+    if (find_project_category_by_name($conn, $categoryName)) {
+        return ['ok' => false, 'error' => 'Kategorin finns redan.'];
+    }
+
+    try {
+        $stmt = execute_prepared($conn, 'INSERT INTO categories (category_name) VALUES (?)', 's', [$categoryName]);
+        return ['ok' => true, 'category_id' => (int) $stmt->insert_id];
+    } catch (mysqli_sql_exception $exception) {
+        return ['ok' => false, 'error' => 'Kategorin kunde inte skapas. Kontrollera att namnet är unikt.'];
+    }
 }
 
 function rename_project_category(mysqli $conn, int $categoryId, string $categoryName): array
@@ -1157,15 +1244,47 @@ function merge_project_categories(mysqli $conn, int $sourceCategoryId, int $targ
     }
 
     try {
+        $counts = count_projects_for_category($conn, $sourceCategoryId);
         $conn->begin_transaction();
-        execute_prepared($conn, 'UPDATE projects SET category_id = ? WHERE category_id = ?', 'ii', [$targetCategoryId, $sourceCategoryId]);
+        $stmt = execute_prepared($conn, 'UPDATE projects SET category_id = ? WHERE category_id = ?', 'ii', [$targetCategoryId, $sourceCategoryId]);
         execute_prepared($conn, 'DELETE FROM categories WHERE id = ?', 'i', [$sourceCategoryId]);
         $conn->commit();
-        return ['ok' => true];
+        return [
+            'ok' => true,
+            'updated_count' => (int) $stmt->affected_rows,
+            'submitted_updated_count' => $counts['submitted_total'],
+        ];
     } catch (Throwable $exception) {
         $conn->rollback();
         log_app_error('Kunde inte slå ihop kategorier.', $exception);
         return ['ok' => false, 'error' => 'Kategorierna kunde inte slås ihop.'];
+    }
+}
+
+function delete_project_category(mysqli $conn, int $categoryId): array
+{
+    if ($categoryId <= 0) {
+        return ['ok' => false, 'error' => 'Ogiltig kategori.'];
+    }
+
+    $category = fetch_project_category($conn, $categoryId);
+    if (!$category) {
+        return ['ok' => false, 'error' => 'Kategorin kunde inte hittas.'];
+    }
+
+    $counts = count_projects_for_category($conn, $categoryId);
+    if ($counts['total'] > 0) {
+        return [
+            'ok' => false,
+            'error' => 'Kategorin används av ' . $counts['total'] . ' arbeten, varav ' . $counts['submitted_total'] . ' inlämnade. Slå ihop kategorin med en annan kategori innan den tas bort.',
+        ];
+    }
+
+    try {
+        execute_prepared($conn, 'DELETE FROM categories WHERE id = ?', 'i', [$categoryId]);
+        return ['ok' => true];
+    } catch (mysqli_sql_exception $exception) {
+        return ['ok' => false, 'error' => 'Kategorin kunde inte tas bort.'];
     }
 }
 

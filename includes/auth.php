@@ -77,6 +77,31 @@ function ensure_password_resets_table(mysqli $conn): void
     $done = true;
 }
 
+function ensure_password_reset_attempts_table(mysqli $conn): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+
+    execute_prepared(
+        $conn,
+        'CREATE TABLE IF NOT EXISTS password_reset_attempts (
+            attempt_key CHAR(64) NOT NULL PRIMARY KEY,
+            scope VARCHAR(24) NOT NULL,
+            request_count INT UNSIGNED NOT NULL DEFAULT 0,
+            locked_until DATETIME NULL,
+            last_requested_at DATETIME NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_password_reset_attempts_locked_until (locked_until),
+            INDEX idx_password_reset_attempts_scope_updated (scope, updated_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_swedish_ci'
+    );
+
+    $done = true;
+}
+
 function app_base_url(): string
 {
     $configuredBaseUrl = configured_app_base_url();
@@ -94,13 +119,85 @@ function app_base_url(): string
     return ($isHttps ? 'https://' : 'http://') . $host . ($path === '' ? '' : $path);
 }
 
+function password_reset_attempt_keys(string $identifier): array
+{
+    $normalizedIdentifier = normalize_email($identifier) ?: mb_strtolower(trim($identifier), 'UTF-8');
+    $ipAddress = login_client_ip();
+
+    return [
+        'identifier_ip' => hash('sha256', 'password_reset_identifier_ip|' . $normalizedIdentifier . '|' . $ipAddress),
+        'ip' => hash('sha256', 'password_reset_ip|' . $ipAddress),
+    ];
+}
+
+function password_reset_is_rate_limited(mysqli $conn, string $identifier): bool
+{
+    ensure_password_reset_attempts_table($conn);
+    $keys = password_reset_attempt_keys($identifier);
+
+    $row = fetch_one_prepared(
+        $conn,
+        'SELECT attempt_key FROM password_reset_attempts
+         WHERE attempt_key IN (?, ?) AND locked_until IS NOT NULL AND locked_until > NOW()
+         LIMIT 1',
+        'ss',
+        [$keys['identifier_ip'], $keys['ip']]
+    );
+
+    return $row !== null;
+}
+
+function password_reset_record_request(mysqli $conn, string $identifier): void
+{
+    ensure_password_reset_attempts_table($conn);
+    $keys = password_reset_attempt_keys($identifier);
+    $windowStart = time() - 15 * 60;
+
+    execute_prepared($conn, 'DELETE FROM password_reset_attempts WHERE updated_at < (NOW() - INTERVAL 1 DAY)');
+
+    foreach ($keys as $scope => $key) {
+        $threshold = $scope === 'ip' ? 10 : 3;
+        $row = fetch_one_prepared(
+            $conn,
+            'SELECT request_count, last_requested_at FROM password_reset_attempts WHERE attempt_key = ? LIMIT 1',
+            's',
+            [$key]
+        );
+
+        $lastRequestedAt = $row && !empty($row['last_requested_at']) ? strtotime((string) $row['last_requested_at']) : 0;
+        $requestCount = $lastRequestedAt >= $windowStart ? (int) ($row['request_count'] ?? 0) + 1 : 1;
+        $lockedUntil = $requestCount >= $threshold ? date('Y-m-d H:i:s', time() + 30 * 60) : null;
+
+        execute_prepared(
+            $conn,
+            'INSERT INTO password_reset_attempts (attempt_key, scope, request_count, locked_until, last_requested_at)
+             VALUES (?, ?, ?, ?, NOW())
+             ON DUPLICATE KEY UPDATE
+                scope = VALUES(scope),
+                request_count = VALUES(request_count),
+                locked_until = VALUES(locked_until),
+                last_requested_at = NOW()',
+            'ssis',
+            [$key, $scope, $requestCount, $lockedUntil]
+        );
+    }
+}
+
 function create_password_reset_request(mysqli $conn, string $identifier): void
 {
     ensure_password_resets_table($conn);
+    ensure_password_reset_attempts_table($conn);
     $identifier = trim($identifier);
     if ($identifier === '') {
         return;
     }
+
+    if (password_reset_is_rate_limited($conn, $identifier)) {
+        log_event($conn, null, 'password_reset_rate_limited', 'user', null);
+        return;
+    }
+
+    password_reset_record_request($conn, $identifier);
 
     $user = fetch_one_prepared(
         $conn,

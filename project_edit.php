@@ -58,6 +58,7 @@ $formData = [
     'title' => $project['title'] ?? '',
     'subtitle' => $project['subtitle'] ?? '',
     'supervisorUserId' => (int) ($project['supervisor_user_id'] ?? 0),
+    'manualSupervisorName' => empty($project['supervisor_user_id']) ? (string) ($project['supervisor'] ?? '') : '',
     'categoryName' => $project['category_name'] ?? '',
     'abstractText' => $project['abstract_text'] ?? '',
     'summaryText' => $project['summary_text'] ?? '',
@@ -136,17 +137,24 @@ require_once __DIR__ . '/includes/header.php';
 
             <div class="field">
                 <label for="supervisor_user_id">Handledare</label>
-                <select id="supervisor_user_id" name="supervisor_user_id" required <?= $canEditContent ? '' : 'disabled' ?>>
+                <select id="supervisor_user_id" name="supervisor_user_id" required <?= $canEditContent ? '' : 'disabled' ?> data-supervisor-select>
                     <option value="">Välj handledare</option>
                     <?php foreach ($teachers as $teacher): ?>
                         <option value="<?= (int) $teacher['id'] ?>" <?= (int) $formData['supervisorUserId'] === (int) $teacher['id'] ? 'selected' : '' ?>>
                             <?= h($teacher['full_name']) ?>
                         </option>
                     <?php endforeach; ?>
+                    <option value="0" <?= (int) $formData['supervisorUserId'] === 0 && $formData['manualSupervisorName'] !== '' ? 'selected' : '' ?>>Handledaren finns inte kvar - ange namn</option>
                 </select>
                 <?php if (!$teachers): ?>
                     <p class="field-help">Det finns inga godkända lärare registrerade på din skola ännu.</p>
                 <?php endif; ?>
+            </div>
+
+            <div class="field" data-manual-supervisor-field>
+                <label for="supervisor_name_manual">Handledarens namn</label>
+                <input id="supervisor_name_manual" name="supervisor_name_manual" type="text" maxlength="120" value="<?= h($formData['manualSupervisorName']) ?>" <?= $canEditContent ? '' : 'disabled' ?>>
+                <p class="field-help">Används när handledaren inte längre arbetar på skolan. Godkännande läggs då på läraren som har flest handledda arbeten i samma kategori.</p>
             </div>
 
             <div class="field">

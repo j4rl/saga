@@ -127,10 +127,58 @@ function can_approve_project(array $project, array $viewer): bool
         && (int) $project['is_submitted'] === 1;
 }
 
+function fetch_category_approver_teacher(mysqli $conn, int $schoolId, int $categoryId, int $excludeProjectId = 0): ?array
+{
+    return fetch_one_prepared(
+        $conn,
+        'SELECT u.id, u.email, u.full_name, COUNT(p.id) AS category_project_count
+         FROM users u
+         INNER JOIN projects p ON (
+            p.supervisor_user_id = u.id
+            OR (p.supervisor_user_id IS NULL AND TRIM(p.supervisor) = TRIM(u.full_name))
+         )
+         WHERE u.role = \'teacher\'
+           AND u.approval_status = \'approved\'
+           AND u.school_id = ?
+           AND p.school_id = ?
+           AND p.category_id = ?
+           AND p.id <> ?
+         GROUP BY u.id, u.email, u.full_name
+         ORDER BY category_project_count DESC, u.id ASC
+         LIMIT 1',
+        'iiii',
+        [$schoolId, $schoolId, $categoryId, $excludeProjectId]
+    );
+}
+
+function teacher_is_selected_category_approver(mysqli $conn, array $project, array $teacher): bool
+{
+    if (($teacher['role'] ?? '') !== 'teacher' || (int) ($project['is_submitted'] ?? 0) !== 1) {
+        return false;
+    }
+
+    $projectId = (int) ($project['id'] ?? 0);
+    $categoryId = (int) ($project['category_id'] ?? 0);
+    $schoolId = (int) ($project['school_id'] ?? 0);
+    if ($projectId <= 0 || $categoryId <= 0 || $schoolId !== (int) $teacher['school_id']) {
+        return false;
+    }
+
+    $approver = fetch_category_approver_teacher($conn, $schoolId, $categoryId, $projectId);
+
+    return $approver !== null && (int) $approver['id'] === (int) $teacher['id'];
+}
+
+function can_approve_project_for_teacher(mysqli $conn, array $project, array $teacher): bool
+{
+    return can_approve_project($project, $teacher)
+        || teacher_is_selected_category_approver($conn, $project, $teacher);
+}
+
 function set_project_approval(mysqli $conn, array $project, array $teacher, bool $approved): array
 {
-    if (!can_approve_project($project, $teacher)) {
-        return ['ok' => false, 'error' => 'Du kan bara godkänna slutligt inlämnade arbeten där du är handledare.'];
+    if (!can_approve_project_for_teacher($conn, $project, $teacher)) {
+        return ['ok' => false, 'error' => 'Du kan bara godkänna slutligt inlämnade arbeten där du är handledare eller redan har arbeten i samma kategori.'];
     }
 
     if ($approved) {
@@ -159,6 +207,7 @@ function set_project_approval(mysqli $conn, array $project, array $teacher, bool
 
     return ['ok' => true, 'approved' => false];
 }
+
 
 function fetch_project_versions(mysqli $conn, int $projectId): array
 {

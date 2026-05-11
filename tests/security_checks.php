@@ -81,6 +81,42 @@ check(can_edit_project_content($ownDraft, $otherStudent) === false, 'Elev ska in
 $loginSource = file_get_contents(__DIR__ . '/../login.php') ?: '';
 check(!str_contains($loginSource, 'admin/admin123'), 'Inloggningssidan ska inte visa testkonton.');
 
+$functionsSource = file_get_contents(__DIR__ . '/../includes/functions.php') ?: '';
+check(str_contains($functionsSource, 'password_reset_attempts'), 'Tabellprefix ska omfatta password_reset_attempts.');
+check(
+    str_contains($functionsSource, 'UPDATE projects SET category_id = ? WHERE category_id = ?'),
+    'Kategorisammanslagning ska flytta alla arbeten fran gammal till ny kategori.'
+);
+check(
+    !str_contains($functionsSource, 'UPDATE projects SET category_id = ? WHERE category_id = ? AND is_submitted'),
+    'Kategorisammanslagning ska inte begransas bort fran inlamnade arbeten.'
+);
+
+$categoriesSource = file_get_contents(__DIR__ . '/../categories.php') ?: '';
+check(str_contains($categoriesSource, 'name="action" value="create"'), 'Superadmin ska kunna skapa kategorier.');
+check(str_contains($categoriesSource, 'name="action" value="delete"'), 'Superadmin ska kunna ta bort tomma kategorier.');
+
+$projectsSource = file_get_contents(__DIR__ . '/../includes/projects.php') ?: '';
+check(str_contains($projectsSource, 'function can_approve_project_for_teacher'), 'Larare ska kunna godkanna via handledarroll eller kategoriansvar.');
+check(str_contains($projectsSource, 'function fetch_category_approver_teacher'), 'Kategori-godkannande ska valja en ansvarig larare.');
+check(str_contains($projectsSource, 'ORDER BY category_project_count DESC, u.id ASC'), 'Kategori-godkannande ska ga till lararen med flest arbeten och deterministisk tie-break.');
+check(str_contains($projectsSource, 'p.category_id = ?'), 'Kategori-godkannande ska matcha projektkategori.');
+
+$projectEditSource = file_get_contents(__DIR__ . '/../project_edit.php') ?: '';
+check(str_contains($projectEditSource, 'supervisor_name_manual'), 'Elever ska kunna ange tidigare handledares namn manuellt.');
+
+$authSource = file_get_contents(__DIR__ . '/../includes/auth.php') ?: '';
+check(str_contains($authSource, 'function password_reset_is_rate_limited'), 'Losenordsaterstallning ska ha separat rate limiting.');
+check(str_contains($authSource, 'password_reset_record_request($conn, $identifier);'), 'Losenordsaterstallning ska registrera forfragan innan anvandaruppslag ger effekt.');
+check(str_contains($authSource, 'password_reset_rate_limited'), 'Rate limit for losenordsaterstallning ska loggas neutralt.');
+
+$configSource = file_get_contents(__DIR__ . '/../config/app.php') ?: '';
+check(str_contains($configSource, 'SAGA_APP_BASE_URL'), 'APP_BASE_URL ska kunna sattas via miljo.');
+
+$installerSource = file_get_contents(__DIR__ . '/../includes/installer.php') ?: '';
+check(str_contains($installerSource, "define('APP_BASE_URL'"), 'Installerad config ska kunna skriva APP_BASE_URL.');
+check(str_contains($installerSource, 'app_base_url'), 'Installeraren ska ha falt for APP_BASE_URL.');
+
 $_SERVER['HTTP_HOST'] = "evil.test\r\nBcc: attacker@example.com";
 check(safe_request_host() === 'localhost', 'HTTP_HOST med radbrytning ska inte anvandas i lankar eller headers.');
 check(mail_from_domain() === 'localhost', 'E-postavsandare ska falla tillbaka vid ogiltig Host-header.');
@@ -93,23 +129,25 @@ $themeCss = school_theme_css_vars([
     'theme_custom_enabled' => 1,
     'theme_primary' => '#235b4e',
     'theme_secondary' => '#24527a',
-    'theme_bg' => '#f6f7f9',
-    'theme_surface' => '#ffffff',
-    'theme_text' => '#20242a',
 ]);
+$derivedTheme = derive_school_theme_colors('#235b4e', '#24527a');
 check(str_contains($themeCss, ':root[data-theme="light"],:root[data-theme="auto"]'), 'Skolans ljusa tema ska vara avgransat till ljust/auto-ljust lage.');
 check(str_contains($themeCss, ':root[data-theme="dark"]'), 'Skolans tema ska ha regler for morkt lage.');
-check(str_contains($themeCss, '--bg: #f6f7f9'), 'Skolans bakgrundsfarg ska appliceras i ljust CSS-lage.');
-check(str_contains($themeCss, '--surface: #ffffff'), 'Skolans ytfarg ska appliceras i ljust CSS-lage.');
-check(str_contains($themeCss, '--text: #20242a'), 'Skolans textfarg ska appliceras i ljust CSS-lage.');
+check(str_contains($themeCss, '--bg: ' . $derivedTheme['light']['theme_bg']), 'Skolans bakgrundsfarg ska raknas fram i ljust CSS-lage.');
+check(str_contains($themeCss, '--surface: ' . $derivedTheme['light']['theme_surface']), 'Skolans ytfarg ska raknas fram i ljust CSS-lage.');
+check(str_contains($themeCss, '--text: ' . $derivedTheme['light']['theme_text']), 'Skolans textfarg ska raknas fram i ljust CSS-lage.');
+check(str_contains($themeCss, '--bg: ' . $derivedTheme['dark']['theme_bg']), 'Skolans bakgrundsfarg ska raknas fram i morkt CSS-lage.');
 
-$contrastErrors = validate_school_theme_colors([
-    'theme_primary' => '#235b4e',
-    'theme_secondary' => '#cccccc',
-    'theme_bg' => '#ffffff',
-    'theme_surface' => '#ffffff',
-    'theme_text' => '#eeeeee',
+$themeErrors = validate_school_theme_colors([
+    'theme_primary' => '#ffffff',
+    'theme_secondary' => '#eeeeee',
 ]);
-check($contrastErrors !== [], 'Skolans tema ska neka olasbara kontraster.');
+check($themeErrors === [], 'Skolans tema ska justera svara fargval till lasbara beraknade paletter.');
+
+$invalidThemeErrors = validate_school_theme_colors([
+    'theme_primary' => '#12345',
+    'theme_secondary' => '#24527a',
+]);
+check($invalidThemeErrors !== [], 'Skolans tema ska neka ogiltiga fargformat.');
 
 echo "security checks ok\n";

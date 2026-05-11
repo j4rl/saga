@@ -18,6 +18,11 @@ if (is_file(INSTALL_LOCK_FILE)) {
     require_once INSTALL_LOCK_FILE;
 }
 
+$envAppBaseUrl = getenv('SAGA_APP_BASE_URL') ?: getenv('APP_BASE_URL') ?: '';
+if (!defined('APP_BASE_URL') && $envAppBaseUrl !== '') {
+    define('APP_BASE_URL', rtrim((string) $envAppBaseUrl, '/'));
+}
+
 define('SESSION_NAME', 'saga_session');
 
 

@@ -14,17 +14,17 @@ if (is_post()) {
 
     if ($action === 'update_school_profile') {
         $customEnabled = isset($_POST['theme_custom_enabled']) ? 1 : 0;
-        $colors = default_theme_colors();
+        $seedColors = default_theme_seed_colors();
 
-        foreach (array_keys($colors) as $field) {
-            $colors[$field] = normalize_hex_color((string) ($_POST[$field] ?? ''));
-            if ($customEnabled === 1 && !$colors[$field]) {
-                $errors[] = 'Alla färger i det egna temat måste anges som giltiga hex-färger.';
+        foreach (array_keys($seedColors) as $field) {
+            $seedColors[$field] = normalize_hex_color((string) ($_POST[$field] ?? ''));
+            if ($customEnabled === 1 && !$seedColors[$field]) {
+                $errors[] = 'Ange två giltiga färger för skolans tema.';
                 break;
             }
         }
         if ($customEnabled === 1 && !$errors) {
-            $errors = array_merge($errors, validate_school_theme_colors($colors));
+            $errors = array_merge($errors, validate_school_theme_colors($seedColors));
         }
 
         $logoUpload = validate_school_logo_upload($_FILES['logo_file'] ?? []);
@@ -41,13 +41,15 @@ if (is_post()) {
                     $storedLogo = store_school_logo($logoUpload['file']);
                 }
 
+                $derivedTheme = $customEnabled ? derive_school_theme_colors($seedColors['theme_primary'], $seedColors['theme_secondary']) : null;
+                $lightTheme = $derivedTheme['light'] ?? default_theme_colors();
                 $params = [
                     $customEnabled,
-                    $customEnabled ? $colors['theme_primary'] : null,
-                    $customEnabled ? $colors['theme_secondary'] : null,
-                    $customEnabled ? $colors['theme_bg'] : null,
-                    $customEnabled ? $colors['theme_surface'] : null,
-                    $customEnabled ? $colors['theme_text'] : null,
+                    $customEnabled ? $seedColors['theme_primary'] : null,
+                    $customEnabled ? $seedColors['theme_secondary'] : null,
+                    $customEnabled ? $lightTheme['theme_bg'] : null,
+                    $customEnabled ? $lightTheme['theme_surface'] : null,
+                    $customEnabled ? $lightTheme['theme_text'] : null,
                 ];
                 $types = 'isssss';
                 $logoSql = '';
@@ -116,7 +118,7 @@ if (is_post()) {
 }
 
 $schoolProfile = fetch_school_profile($conn, (int) $user['school_id']);
-$themeColors = default_theme_colors();
+$themeColors = default_theme_seed_colors();
 foreach (array_keys($themeColors) as $field) {
     if (!empty($schoolProfile[$field]) && is_hex_color($schoolProfile[$field])) {
         $themeColors[$field] = $schoolProfile[$field];
@@ -171,33 +173,21 @@ require_once __DIR__ . '/includes/header.php';
             <div class="theme-builder" data-theme-builder>
                 <div class="field">
                     <label for="theme_primary">Primär färg</label>
-                    <input id="theme_primary" name="theme_primary" type="color" value="<?= h($themeColors['theme_primary']) ?>" data-theme-color="--primary">
+                    <input id="theme_primary" name="theme_primary" type="color" value="<?= h($themeColors['theme_primary']) ?>" data-theme-seed="primary">
                 </div>
                 <div class="field">
-                    <label for="theme_secondary">Länkfärg</label>
-                    <input id="theme_secondary" name="theme_secondary" type="color" value="<?= h($themeColors['theme_secondary']) ?>" data-theme-color="--secondary">
-                </div>
-                <div class="field">
-                    <label for="theme_bg">Bakgrund</label>
-                    <input id="theme_bg" name="theme_bg" type="color" value="<?= h($themeColors['theme_bg']) ?>" data-theme-color="--bg">
-                </div>
-                <div class="field">
-                    <label for="theme_surface">Ytor</label>
-                    <input id="theme_surface" name="theme_surface" type="color" value="<?= h($themeColors['theme_surface']) ?>" data-theme-color="--surface">
-                </div>
-                <div class="field">
-                    <label for="theme_text">Text</label>
-                    <input id="theme_text" name="theme_text" type="color" value="<?= h($themeColors['theme_text']) ?>" data-theme-color="--text">
+                    <label for="theme_secondary">Accentfärg</label>
+                    <input id="theme_secondary" name="theme_secondary" type="color" value="<?= h($themeColors['theme_secondary']) ?>" data-theme-seed="secondary">
                 </div>
             </div>
-            <p class="field-help">Text och länkar måste ha minst 4.5:1 kontrast. Mörkt läge använder kontrastsäkra mörka ytor med skolans accentfärger.</p>
+            <p class="field-help">Välj två färger. SAGA räknar fram bakgrund, ytor, text, länkar och mörkt läge automatiskt med kontrastkontroll.</p>
         </div>
 
         <div class="settings-panel">
             <h3>Logotyp</h3>
             <?php if ($schoolProfile && $schoolProfile['logo_filename']): ?>
                 <div class="logo-preview">
-                    <img src="school_logo.php?id=<?= (int) $schoolProfile['id'] ?>" alt="">
+                    <img src="school_logo.php?id=<?= (int) $schoolProfile['id'] ?>" alt="" data-logo-preview-target>
                     <span><?= h($schoolProfile['logo_original_name']) ?></span>
                 </div>
                 <label class="check-option">
@@ -210,8 +200,8 @@ require_once __DIR__ . '/includes/header.php';
 
             <div class="field">
                 <label for="logo_file">Ladda upp logotyp</label>
-                <input id="logo_file" name="logo_file" type="file" accept="image/png,image/jpeg,image/webp">
-                <p class="field-help">PNG, JPG eller WebP. Max 2 MB.</p>
+                <input id="logo_file" name="logo_file" type="file" accept="image/png,image/jpeg,image/webp" data-logo-input>
+                <p class="field-help">PNG, JPG eller WebP. Max 2 MB. Logotypen skalas ned automatiskt i gränssnittet.</p>
             </div>
         </div>
 
@@ -219,9 +209,10 @@ require_once __DIR__ . '/includes/header.php';
             <h3>Förhandsvisning</h3>
             <div class="preview-brand">
                 <?php if ($schoolProfile && $schoolProfile['logo_filename']): ?>
-                    <img src="school_logo.php?id=<?= (int) $schoolProfile['id'] ?>" alt="">
+                    <img src="school_logo.php?id=<?= (int) $schoolProfile['id'] ?>" alt="" data-logo-preview-target>
                 <?php else: ?>
-                    <span class="brand-mark">S</span>
+                    <img src="" alt="" hidden data-logo-preview-target>
+                    <span class="brand-mark" data-logo-placeholder>S</span>
                 <?php endif; ?>
                 <div>
                     <strong><?= h($user['school_name']) ?></strong>

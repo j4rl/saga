@@ -40,7 +40,13 @@ $themeCss = $schoolProfile ? school_theme_css_vars($schoolProfile) : '';
 <a class="skip-link" href="#main-content">Hoppa till innehåll</a>
 <header class="site-header">
     <a class="brand" href="index.php" aria-label="Startsida">
-        <span class="brand-mark">S</span>
+        <?php if ($schoolProfile && !empty($schoolProfile['logo_filename'])): ?>
+            <span class="brand-logo-frame">
+                <img class="brand-logo" src="school_logo.php?id=<?= (int) $schoolProfile['id'] ?>" alt="Logotyp för <?= h($schoolProfile['school_name']) ?>">
+            </span>
+        <?php else: ?>
+            <span class="brand-mark">S</span>
+        <?php endif; ?>
         <span>
             <strong><?= h(APP_NAME) ?></strong>
             <small>Gymnasiearbeten</small>
