@@ -175,6 +175,10 @@ $profileSource = file_get_contents(__DIR__ . '/../profile.php') ?: '';
 check(str_contains($profileSource, 'download_personal_data'), 'Profilsidan ska kunna ladda ned anvandarens data.');
 check(str_contains($profileSource, 'delete_account'), 'Profilsidan ska kunna radera konto.');
 
+$studentDashboardSource = file_get_contents(__DIR__ . '/../dashboard_student.php') ?: '';
+check(str_contains($studentDashboardSource, 'fetch_project_feedback'), 'Elevpanelen ska visa aterkoppling direkt i forsta vyn.');
+check(str_contains($studentDashboardSource, 'name="action" value="add_feedback"'), 'Elevpanelen ska lata eleven svara pa aterkoppling.');
+
 $schoolAdminSource = file_get_contents(__DIR__ . '/../dashboard_school_admin.php') ?: '';
 check(str_contains($schoolAdminSource, 'assign_registration'), 'Skoladminpanelen ska ha atgard for att skicka elevregistrering till larare.');
 check(str_contains($schoolAdminSource, 'fetch_school_teachers'), 'Skoladminpanelen ska lista godkanda larare for tilldelning.');

@@ -6,6 +6,25 @@ require_role('student');
 
 $user = current_user();
 $project = get_project_for_student($conn, (int) $user['id']);
+$feedbackError = null;
+
+if (is_post()) {
+    verify_csrf();
+    $action = (string) ($_POST['action'] ?? '');
+
+    if ($action === 'add_feedback' && $project) {
+        $result = add_project_feedback($conn, $project, $user, (string) ($_POST['comment_text'] ?? ''));
+        if ($result['ok']) {
+            set_flash('success', 'Kommentaren har sparats.');
+            redirect('dashboard_student.php#feedback');
+        }
+
+        $feedbackError = $result['error'] ?? 'Kommentaren kunde inte sparas.';
+    }
+}
+
+$canViewFeedback = $project && can_view_project_feedback($project, $user);
+$feedback = $canViewFeedback ? fetch_project_feedback($conn, (int) $project['id']) : [];
 $pageTitle = 'Elevpanel';
 
 require_once __DIR__ . '/includes/header.php';
@@ -89,6 +108,48 @@ require_once __DIR__ . '/includes/header.php';
                 <?php endif; ?>
             </div>
         </article>
+
+        <?php if ($canViewFeedback): ?>
+            <section id="feedback" class="section">
+                <div class="section-heading">
+                    <div>
+                        <h2>Återkoppling</h2>
+                        <p class="muted">Kommentarer mellan dig och handledaren.</p>
+                    </div>
+                </div>
+
+                <?php if (!$feedback): ?>
+                    <p class="empty-state">Ingen återkoppling har skrivits ännu.</p>
+                <?php else: ?>
+                    <div class="feedback-list">
+                        <?php foreach ($feedback as $comment): ?>
+                            <article class="feedback-item">
+                                <header>
+                                    <strong><?= h($comment['full_name']) ?></strong>
+                                    <span><?= h(role_label($comment['role'])) ?> · <?= h(format_date($comment['created_at'])) ?></span>
+                                </header>
+                                <p><?= nl2br(h($comment['comment_text'])) ?></p>
+                            </article>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (can_comment_project($project, $user)): ?>
+                    <form class="feedback-form" method="post" action="dashboard_student.php#feedback">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="action" value="add_feedback">
+                        <?php if ($feedbackError): ?>
+                            <div class="notice notice-error"><?= h($feedbackError) ?></div>
+                        <?php endif; ?>
+                        <div class="field">
+                            <label for="comment_text">Svara</label>
+                            <textarea id="comment_text" name="comment_text" rows="5" maxlength="2000" required></textarea>
+                        </div>
+                        <button class="button button-primary" type="submit">Skicka svar</button>
+                    </form>
+                <?php endif; ?>
+            </section>
+        <?php endif; ?>
     <?php endif; ?>
 </section>
 
